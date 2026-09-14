@@ -1,0 +1,36 @@
+# ==========================================
+# Elephant Robotics MyArm 300 Pi Parameters
+# ==========================================
+
+robot:
+  model: "myarm_300_pi"
+  dof: 7
+  serial_port: "COM3"          # Σε Linux: "/dev/ttyAMA0" ή "/dev/ttyUSB0"
+  baudrate: 115200
+
+# Όρια θέσης αρθρώσεων (σε μοίρες και ακτίνια)
+joint_limits:
+  # [min, max] σε rad για κάθε μία από τις 7 αρθρώσεις
+  q_min: [-2.79, -1.57, -2.79, -1.57, -2.79, -1.57, -2.79]
+  q_max: [ 2.79,  1.57,  2.79,  1.57,  2.79,  1.57,  2.79]
+
+# Μέγιστες επιτρεπόμενες ταχύτητες αρθρώσεων (rad/s)
+velocity_limits:
+  max_joint_velocity: 1.0      # Όριο ασφαλείας για να μην τινάζεται το ρομπότ
+
+# Παράμετροι Αποφυγής Ιδιομορφιών (Singularity Handling)
+solver:
+  damping_factor_sq: 0.005     # Damping coefficient (lambda^2) για Damped Least Squares (DLS)
+  null_space_gain: 0.5         # Κέρδος (gain) επιστροφής στην άνετη στάση (posture control)
+  
+  # Προτιμώμενη στάση αρθρώσεων (Rest / Home configuration q_0 για το null space)
+  q_rest: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+# Καρτεσιανό κουτί ασφαλείας (Workspace limits σε μέτρα)
+workspace_limits:
+  x_min: -0.35
+  x_max: 0.35
+  y_min: 0.10
+  y_max: 0.40
+  z_min: 0.02                  # 2cm πάνω από το τραπέζι για αποφυγή πρόσκρουσης
+  z_max: 0.45
