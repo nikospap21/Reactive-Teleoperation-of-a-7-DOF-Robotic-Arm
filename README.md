@@ -77,4 +77,4 @@ python main.py
 
 ## 👥 Contributors
 - **Nikolaos Papoutsopoulos** - up1101000
-- **Marios Choustoulakhs** - 1101141
+- **Marios Choustoulakhs** - up1101141
