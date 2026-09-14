@@ -9,14 +9,14 @@ def main():
 
     joystick_count = pygame.joystick.get_count()
     if joystick_count == 0:
-        print("\n[!] Δεν εντοπίστηκε χειριστήριο. Σύνδεσε το PS2 controller μέσω USB και ξαναδοκίμασε.\n")
+        print("\nΔεν εντοπίστηκε χειριστήριο. Σύνδεσε το PS2 controller μέσω USB και ξαναδοκίμασε.\n")
         sys.exit(1)
 
     controller = pygame.joystick.Joystick(0)
     controller.init()
 
-    print(f"\n[+] Συνδέθηκε: {controller.get_name()}")
-    print(f"[+] Άξονες: {controller.get_numaxes()} | Κουμπιά: {controller.get_numbuttons()} | Hats (D-pad): {controller.get_numhats()}")
+    print(f"\nΣυνδέθηκε: {controller.get_name()}")
+    print(f"Άξονες: {controller.get_numaxes()} | Κουμπιά: {controller.get_numbuttons()} | Hats (D-pad): {controller.get_numhats()}")
     print("-" * 65)
     print("Κούνα τους μοχλούς και πάτα κουμπιά. Πάτα Ctrl+C για έξοδο.")
     print("-" * 65 + "\n")
@@ -40,7 +40,7 @@ def main():
             time.sleep(0.05)
 
     except KeyboardInterrupt:
-        print("\n\n[+] Τερματισμός ελέγχου.")
+        print("\n\nΤερματισμός ελέγχου.")
         pygame.quit()
 
 if __name__ == "__main__":
