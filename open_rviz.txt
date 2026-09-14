@@ -3,5 +3,11 @@ ros2 launch myarm_300 test.launch.py
 
 Αν κολλήσει το terminal, πατάς Ctrl-C για να κλείσει οτιδήποτε τρέχει στο background.
 
+sudo apt update && sudo apt install -y joystick
+
+Για να δώσεις δικαιώματα στην συσκευή:
+sudo chmod 666 /dev/input/js2 
+ή οτιδήποτε είναι (js0,js1 etc)
+
 Για να δούμε αν αναγνωρίζεται το χειριστήριο και ποιο handler είναι:
 cat /proc/bus/input/devices | grep -E "Name|Handlers" 
