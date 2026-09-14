@@ -1,0 +1,4 @@
+source ~/ros2_ws/install/setup.bash
+ros2 launch myarm_300 test.launch.py
+
+##Αν κολλήσει το terminal, πατάς Ctrl-C για να κλείσει οτιδήποτε τρέχει στο background.
