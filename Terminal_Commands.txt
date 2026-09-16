@@ -1,0 +1,11 @@
+Linux ROS2 Commands
+source ~/ros2_ws/install/setup.bash
+ros2 launch myarm_300 test.launch.py
+
+Close ROS2 : Ctrl-C
+
+Joystick : sudo apt update && sudo apt install -y joystick
+
+Give device rights: sudo chmod 666 /dev/input/js2 
+
+See if it recognizes the controller and see which handler it is : cat /proc/bus/input/devices | grep -E "Name|Handlers" 
