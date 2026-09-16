@@ -11,10 +11,9 @@ from src.input.ps2_controller import PS2Receiver
 
 
 def main():
-  print("[*] Εκκίνηση PS2 Receiver Test...")
+  print("Εκκίνηση PS2 Receiver Test...")
   receiver = PS2Receiver("config/controller_config.yaml")
-  print(f"[*] Ακρόαση σε UDP {receiver.ip}:{receiver.port}")
-  print("[*] Πάτα Ctrl+C για έξοδο.\n")
+  print(f"Receiver: {receiver.ip}:{receiver.port}")
 
   rate = 1.0 / receiver.cfg["controller"]["update_rate_hz"]
 
