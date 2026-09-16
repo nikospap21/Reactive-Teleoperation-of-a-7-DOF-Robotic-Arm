@@ -9,3 +9,6 @@ Joystick : sudo apt update && sudo apt install -y joystick
 Give device rights: sudo chmod 666 /dev/input/js2 
 
 See if it recognizes the controller and see which handler it is : cat /proc/bus/input/devices | grep -E "Name|Handlers" 
+
+cd /media/sf_Project_September
+python3 xbox_cartesian_teleop.py
