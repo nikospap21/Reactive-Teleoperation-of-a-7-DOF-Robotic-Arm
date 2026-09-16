@@ -2,9 +2,13 @@
 # PS2 Controller Mapping & Teleop Settings
 # ==========================================
 
+network:
+  ip: "0.0.0.0"
+  port: 5005
+
 controller:
   device_index: 0     # ID συσκευής στο pygame
-  deadzone: 1         # Κατώφλι κάτω από το οποίο αγνοείται η είσοδος (0.0 - 1.0)
+  deadzone: 0.5       # Κατώφλι κάτω από το οποίο αγνοείται η είσοδος (0.0 - 1.0)
   update_rate_hz: 50  # Συχνότητα polling του χειριστηρίου (Hz)
 
 axes:
