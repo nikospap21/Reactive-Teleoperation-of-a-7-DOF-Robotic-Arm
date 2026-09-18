@@ -1,10 +1,20 @@
 import os
 import yaml
 import numpy as np
+import pygame
 
 # Απενεργοποίηση video/display requirements του pygame για headless/terminal χρήση
 os.environ["SDL_VIDEODRIVER"] = "dummy"
-import pygame
+
+# 1. Βρίσκουμε τον φάκελο στον οποίο βρίσκεται το τρέχον script (π.χ. src/input/)
+CURRENT_FILE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# 2. Ανεβαίνουμε δύο επίπεδα (.. -> src, .. -> project root) και πάμε στο config/
+CONFIG_PATH = os.path.abspath(os.path.join(CURRENT_FILE_DIR, "..", "..", "config", "controller_config.yaml"))
+
+# 3. Ασφαλές άνοιγμα ανεξάρτητα από πού εκτελείται η εντολή στο terminal
+with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+    config_data = yaml.safe_load(f)
 
 
 class DirectPS2Controller:
