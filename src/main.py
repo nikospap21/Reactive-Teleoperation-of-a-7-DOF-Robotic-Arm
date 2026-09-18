@@ -3,110 +3,115 @@ import sys
 import time
 import numpy as np
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# Root path injection
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if ROOT_DIR not in sys.path:
+  sys.path.insert(0, ROOT_DIR)
 
+from src.control.safety import SafetySupervisor
 from src.input.ps2_controller import DirectPS2Controller
 from src.kinematics.model import MyArmKinematics
 from src.kinematics.redundancy_solver import RedundancySolver
-from src.control.safety import SafetySupervisor
-from src.control.robot_interface import MyArmInterface
-from src.gripper.vacuum_gripper import VacuumGripper
 
 
-def run_teleoperation():
-    RATE_HZ = 30.0
-    DT = 1.0 / RATE_HZ
+class TeleoperationNode:
 
-    print("=" * 60)
-    print("   MyArm 300 Pi - Standalone Teleoperation on Raspberry Pi   ")
-    print("=" * 60)
+  def __init__(self, rate_hz=30.0):
+    self.dt = 1.0 / rate_hz
+    self.rate_hz = rate_hz
 
-    # 1. Hardware Interfaces
-    ps2 = DirectPS2Controller(config_path="config/controller_config.yaml")
-    kinematics = MyArmKinematics()
-    solver = RedundancySolver(kinematics=kinematics)
+    print("[*] Αρχικοποίηση Teleoperation...")
 
-    safety = SafetySupervisor(
-        q_min=kinematics.joint_limits_lower,
-        q_max=kinematics.joint_limits_upper,
+    # 1. Απευθείας USB σύνδεση χειριστηρίου
+    self.ps2 = DirectPS2Controller()
+
+    # 2. Κινηματική & Redundancy solver
+    self.kinematics = MyArmKinematics()
+    self.solver = RedundancySolver(kinematics=self.kinematics)
+
+    # 3. Safety Supervisor
+    self.safety = SafetySupervisor(
+        q_min=self.kinematics.joint_limits_lower,
+        q_max=self.kinematics.joint_limits_upper,
         max_joint_vel=1.0,
-        buffer_zone_deg=6.0
+        buffer_zone_deg=5.0,
     )
 
-    # Αν είστε στο πραγματικό ρομπότ, βάλτε mock=False και τη σωστή θύρα (/dev/ttyAMA0 ή /dev/ttyUSB0)
-    robot = MyArmInterface(
-        port="/dev/ttyAMA0",
-        baudrate=115200,
-        mock=False,
-        joint_limits_lower=kinematics.joint_limits_lower,
-        joint_limits_upper=kinematics.joint_limits_upper
-    )
+    # Αρχική ασφαλής θέση (Home pose σε ακτίνια)
+    self.q_current = np.radians([0.0, 30.0, 0.0, 60.0, 0.0, 30.0, 0.0])
+    self.is_running = False
 
-    gripper = VacuumGripper(arm_interface=robot, mock=False)
+  def run(self):
+    self.is_running = True
+    print(f"[*] Loop ξεκίνησε στα {self.rate_hz} Hz.")
+    print("[*] Κούνα τα sticks. Πάτα Ctrl+C για έξοδο.\n")
 
-    print("[*] Μετάβαση σε Home Pose...")
-    robot.go_home(speed=25)
     prev_gripper = False
 
-    print("\n[+] Σύστημα έτοιμο. Οδηγίες:")
-    print(" - Αριστερός μοχλός: X / Y")
-    print(" - Δεξί μοχλός: Z (ύψος) & Yaw (περιστροφή)")
-    print(" - Κουμπί 0 / 1: Suction Gripper ON / OFF")
-    print(" - Πάτα Ctrl+C για έξοδο.\n")
-
     try:
-        while True:
-            t_start = time.time()
+      while self.is_running:
+        loop_start = time.time()
 
-            # 1. Ανάγνωση Χειριστηρίου
-            vx, vy, vz, wz, gripper_on, connected = ps2.update()
-            v_cartesian = np.array([vx, vy, vz, 0.0, 0.0, wz], dtype=float)
+        # 1. Ανάγνωση απευθείας από το USB gamepad
+        vx, vy, vz, wz, gripper, connected = self.ps2.update()
 
-            # 2. Έλεγχος Βεντούζας
-            if gripper_on != prev_gripper:
-                prev_gripper = gripper_on
-                gripper.set_state(gripper_on)
+        # Καρτεσιανό διάνυσμα ταχύτητας [vx, vy, vz, wx, wy, wz]
+        v_cartesian = np.array([vx, vy, vz, 0.0, 0.0, wz], dtype=float)
 
-            # 3. Ανάγνωση Κατάστασης Ρομπότ
-            q_current = robot.get_joint_angles()
+        # 2. Έλεγχος Gripper
+        if gripper != prev_gripper:
+          prev_gripper = gripper
+          print(f"\n[GRIPPER] {'ON' if gripper else 'OFF'}")
 
-            # 4. Workspace & Safety Checks
-            ee_pos, _ = kinematics.get_end_effector_pose(q_current)
-            v_safe = safety.check_workspace(ee_pos, v_cartesian)
+        # 3. Dead-man Switch: Αν όλα τα inputs είναι ~0, πλήρης στάση
+        # Αυτό αποτρέπει την αυτόνομη κίνηση του null space drift
+        is_idle = np.all(np.abs(v_cartesian) < 1e-4)
 
-            # 5. Differential Kinematics & Redundancy
-            if np.allclose(v_safe, 0.0):
-                q_dot_final = np.zeros(7)
-            else:
-                q_dot_raw = solver.solve(q_current, v_safe)
-                q_dot_final = safety.filter_command(q_current, q_dot_raw)
+        if is_idle:
+          q_dot_final = np.zeros(7)
+        else:
+          # 4. Workspace safety check
+          ee_pos, _ = self.kinematics.get_end_effector_pose(self.q_current)
+          v_safe = self.safety.check_workspace(ee_pos, v_cartesian)
 
-            # 6. Αποστολή στο Υλικό
-            if np.allclose(q_dot_final, 0.0):
-                robot.stop_motion()
-            else:
-                robot.send_joint_velocities(q_dot_final, q_current, dt=DT, speed=85)
+          # 5. Επίλυση διαφορικής κινηματικής & Redundancy
+          q_dot_computed = self.solver.solve(self.q_current, v_safe)
 
-            # Telemetry
-            sys.stdout.write(
-                f"\r[STATUS] EE: X:{ee_pos[0]:+.3f} Y:{ee_pos[1]:+.3f} Z:{ee_pos[2]:+.3f} m | "
-                f"Gripper: {'[ON]' if gripper.is_active else '[OFF]'}"
-            )
-            sys.stdout.flush()
+          # 6. Safety clamping σε ταχύτητες και όρια
+          q_dot_final = self.safety.filter_command(
+              self.q_current, q_dot_computed
+          )
 
-            # Διατήρηση loop rate
-            elapsed = time.time() - t_start
-            to_sleep = DT - elapsed
-            if to_sleep > 0:
-                time.sleep(to_sleep)
+        # 7. Ολοκλήρωση θέσης
+        self.q_current += q_dot_final * self.dt
+        self.q_current = np.clip(
+            self.q_current,
+            self.kinematics.joint_limits_lower,
+            self.kinematics.joint_limits_upper,
+        )
+
+        # 8. Real-time Telemetry (εμφάνιση ταχυτήτων και θέσης)
+        ee_pos, _ = self.kinematics.get_end_effector_pose(self.q_current)
+        sys.stdout.write(
+            f"\r[JOYSTICK] vx:{vx:+.2f} vy:{vy:+.2f} vz:{vz:+.2f} wz:{wz:+.2f}"
+            f" | EE: [{ee_pos[0]:.2f}, {ee_pos[1]:.2f}, {ee_pos[2]:.2f}] m |"
+            f" Gripper: {'ON ' if gripper else 'OFF'}"
+        )
+        sys.stdout.flush()
+
+        # Loop rate sleep
+        elapsed = time.time() - loop_start
+        if self.dt > elapsed:
+          time.sleep(self.dt - elapsed)
 
     except KeyboardInterrupt:
-        print("\n\n[*] Διακοπή από τον χειριστή.")
-    finally:
-        gripper.cleanup()
-        robot.stop_motion()
-        print("[+] Το ρομπότ ακινητοποιήθηκε με ασφάλεια.")
+      print("\n\n[*] Τερματισμός teleoperation.")
+
+
+def main():
+  node = TeleoperationNode(rate_hz=30.0)
+  node.run()
 
 
 if __name__ == "__main__":
-    run_teleoperation()
+  main()
