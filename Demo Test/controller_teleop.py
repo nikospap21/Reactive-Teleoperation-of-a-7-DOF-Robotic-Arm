@@ -20,7 +20,7 @@ class PS2Controller:
 
         # Scalers Ταχυτήτων (m/s & rad/s)
         self.scale_pos = 0.08
-        self.scale_rot = 0.30
+        self.scale_rot = 0.15
 
     def _apply_deadzone(self, value):
         """Αυστηρή νεκρή ζώνη: Μηδενίζει οτιδήποτε μικρότερο από το deadzone."""
@@ -58,7 +58,7 @@ class PS2Controller:
         vz = -ry * self.scale_pos  # Πάνω / Κάτω
         
         wx = 0.0
-        wy = -vx * 1.5             
+        wy = 0.0            
         wz =  rx * self.scale_rot  # Yaw Περιστροφή
 
         # Noise Cutoffs
