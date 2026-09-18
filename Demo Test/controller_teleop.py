@@ -31,6 +31,10 @@ class PS2Controller:
         sign = 1.0 if value > 0 else -1.0
         return sign * (abs(value) - self.deadzone) / (1.0 - self.deadzone)
 
+    def normalize_trigger(self, raw_value):
+        norm_val = (raw_value + 1.0) / 2.0
+        return self._apply_deadzone(norm_val)
+
     def get_cartesian_velocity(self):
         """
         Διαβάζει ΑΠΟΚΛΕΙΣΤΙΚΑ τους 2 αναλογικούς μοχλούς.
@@ -45,18 +49,16 @@ class PS2Controller:
         raw_lx = self.joystick.get_axis(0) if num_axes > 0 else 0.0
         raw_ly = self.joystick.get_axis(1) if num_axes > 1 else 0.0
         raw_lz = self.joystick.get_axis(4) if num_axes > 4 else 0.0
-        raw_rx = self.joystick.get_axis(2) if num_axes > 2 else 0.0
-        raw_ry = self.joystick.get_axis(5) if num_axes > 5 else 0.0
+        raw_rx = self.joystick.get_axis(2) if num_axes > 2 else -1.0
+        raw_ry = self.joystick.get_axis(5) if num_axes > 5 else -1.0
         raw_rz = self.joystick.get_axis(3) if num_axes > 3 else 0.0
-
-
 
         # Εφαρμογή νεκρής ζώνης
         lx = self._apply_deadzone(raw_lx)
         ly = self._apply_deadzone(raw_ly)
         lz = self._apply_deadzone(raw_lz)
-        rx = self._apply_deadzone(raw_rx)
-        ry = self._apply_deadzone(raw_ry)
+        rx = self.normalize_trigger(raw_rx)
+        ry = self.normalize_trigger(raw_ry)
         rz = self._apply_deadzone(raw_rz)
 
 
