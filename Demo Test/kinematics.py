@@ -80,13 +80,8 @@ class KinematicsEngine7DOF:
         # 2. Main Kinematic Task (Κίνηση End-Effector)
         q_dot_task = J_pinv @ v_cmd
 
-        # 3. Null-Space Projection (Αξιοποίηση περιττής άρθρωσης 7-DOF)
-        # N = I - J_pinv * J
-        null_projector = np.eye(self.dof) - (J_pinv @ J)
-        q_dot_null = null_projector @ (self.k_null * (self.q_rest - q_current))
-
         # Συνολική ταχύτητα αρθρώσεων
-        return q_dot_task + q_dot_null
+        return q_dot_task 
 
 
 # --- Αυτόνομη Δοκιμή (Standalone Test) ---
