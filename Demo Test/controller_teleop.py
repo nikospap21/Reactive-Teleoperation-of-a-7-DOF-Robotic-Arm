@@ -2,7 +2,7 @@ import pygame #type:ignore
 import numpy as np
 
 class PS2Controller:
-    def __init__(self, device_index=0, deadzone=0.20):
+    def __init__(self, device_index=0, deadzone = 0.1):
         """
         Αρχικοποίηση PS2 Controller με αυστηρό φιλτράρισμα drift.
         """
@@ -19,8 +19,9 @@ class PS2Controller:
         self.vacuum_state = False
 
         # Scalers Ταχυτήτων (m/s & rad/s)
-        self.scale_pos = 0.08
-        self.scale_rot = 0.15
+        self.scale_pos = 0.1
+        self.scale_pos_z = 0.2
+        self.scale_rot = 0.3
 
     def _apply_deadzone(self, value):
         """Αυστηρή νεκρή ζώνη: Μηδενίζει οτιδήποτε μικρότερο από το deadzone."""
@@ -43,29 +44,36 @@ class PS2Controller:
         
         raw_lx = self.joystick.get_axis(0) if num_axes > 0 else 0.0
         raw_ly = self.joystick.get_axis(1) if num_axes > 1 else 0.0
+        raw_lz = self.joystick.get_axis(4) if num_axes > 4 else 0.0
         raw_rx = self.joystick.get_axis(2) if num_axes > 2 else 0.0
-        raw_ry = self.joystick.get_axis(3) if num_axes > 3 else 0.0
+        raw_ry = self.joystick.get_axis(5) if num_axes > 5 else 0.0
+        raw_rz = self.joystick.get_axis(3) if num_axes > 3 else 0.0
+
+
 
         # Εφαρμογή νεκρής ζώνης
         lx = self._apply_deadzone(raw_lx)
         ly = self._apply_deadzone(raw_ly)
+        lz = self._apply_deadzone(raw_lz)
         rx = self._apply_deadzone(raw_rx)
         ry = self._apply_deadzone(raw_ry)
+        rz = self._apply_deadzone(raw_rz)
+
 
         # Αντιστοίχιση σε Καρτεσιανές Ταχύτητες [vx, vy, vz, wx, wy, wz]
-        vx = -ly * self.scale_pos  # Πρόσω / Πίσω
-        vy =  lx * self.scale_pos  # Αριστερά / Δεξιά
-        vz = -ry * self.scale_pos  # Πάνω / Κάτω
+        vx = -lx * self.scale_pos  # Πρόσω / Πίσω
+        vy =  ly * self.scale_pos  # Αριστερά / Δεξιά
+        vz = lz * self.scale_pos_z  # Πάνω / Κάτω
         
-        wx = 0.0
-        wy = 0.0            
-        wz =  rx * self.scale_rot  # Yaw Περιστροφή
+        wx = rx * self.scale_rot  # Yaw Περιστροφή
+        wy = ry * self.scale_rot  # Yaw Περιστροφή          
+        wz = rz * self.scale_rot  # Yaw Περιστροφή
 
         # Noise Cutoffs
-        if abs(vx) < 0.002: vx = 0.0
-        if abs(vy) < 0.002: vy = 0.0
-        if abs(vz) < 0.002: vz = 0.0
-        if abs(wz) < 0.020: wz = 0.0
+        #if abs(vx) < 0.002: vx = 0.0
+        #if abs(vy) < 0.002: vy = 0.0
+        #if abs(vz) < 0.002: vz = 0.0
+        #if abs(wz) < 0.020: wz = 0.0
 
         return np.array([vx, vy, vz, wx, wy, wz])
 
