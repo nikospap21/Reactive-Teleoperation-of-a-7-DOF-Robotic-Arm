@@ -1,132 +1,134 @@
 import time
 import numpy as np
-from pymycobot import MyArm #type:ignore
-# Εισαγωγή των δύο modules που φτιάξαμε
+from pymycobot import MyArm # type:ignore
+
 from controller_teleop import PS2Controller
 from kinematics import KinematicsEngine7DOF
 
-SERIAL_PORT = "/dev/ttyAMA0"
-BAUDRATE = 115200
+# ==========================================
+# 1. ΕΣΩΤΕΡΙΚΗ ΣΥΝΔΕΣΗ (Raspberry Pi -> MyArm)
+# ==========================================
+SERIAL_PORT = "/dev/ttyAMA0"  # Εσωτερική θύρα Raspberry Pi
+BAUDRATE = 115200             # Baudrate επικοινωνίας
 
 try:
     arm = MyArm(SERIAL_PORT, BAUDRATE)
-    print(f"[HARDWARE] Επιτυχής σύνδεση με MyArm 300 Pi στη θύρα {SERIAL_PORT}")
+    time.sleep(0.5)  # Αναμονή σταθεροποίησης σειριακής
+    
+    # ΕΝΕΡΓΟΠΟΙΗΣΗ ΚΙΝΗΤΗΡΩΝ (Ξεκλείδωμα αρθρώσεων)
+    arm.power_on()
+    time.sleep(0.5)
+    print(f"[HARDWARE SUCCESS] Σύνδεση & Ενεργοποίηση Servos στο MyArm 300 Pi ({SERIAL_PORT})")
 except Exception as e:
-    print(f"[HARDWARE ERROR] Αποτυχία σύνδεσης στη θύρα {SERIAL_PORT}: {e}")
+    print(f"[HARDWARE ERROR] Αποτυχία σύνδεσης: {e}")
     arm = None
 
 # ==========================================
-# 1. ΠΑΡΑΜΕΤΡΟΙ ΡΟΜΠΟΤ & ΑΣΦΑΛΕΙΑΣ
+# 2. ΠΑΡΑΜΕΤΡΟΙ ΡΟΜΠΟΤ & ΑΣΦΑΛΕΙΑΣ
 # ==========================================
 DOF = 7
 DT = 1.0 / 30.0  # 30 Hz Control Loop Rate
 
-# Όρια θέσης αρθρώσεων (σε rad)[cite: 1]
+# Όρια θέσης αρθρώσεων (rad)
 Q_MIN = np.array([-2.79, -1.57, -2.79, -1.57, -2.79, -1.57, -2.79])
 Q_MAX = np.array([ 2.79,  1.57,  2.79,  1.57,  2.79,  1.57,  2.79])
 
-# Καρτεσιανό κουτί ασφαλείας (Workspace Limits σε μέτρα)[cite: 1]
+# Safety Box (Workspace Limits σε μέτρα)
 WORKSPACE_LIMITS = {
     'x': (-0.35, 0.35),
     'y': (0.10, 0.40),
-    'z': (0.02, 0.45)   # z_min = 2cm πάνω από το τραπέζι για ασφάλεια[cite: 1]
+    'z': (0.02, 0.45)   # 2 cm πάνω από το τραπέζι
 }
 
 def enforce_cartesian_limits(p_end, v_cmd):
-    """
-    Cartesian Workspace Enforcement: 
-    Αν το End-Effector αγγίξει όριο workspace, ακυρώνει την ταχύτητα 
-    προς την επικίνδυνη κατεύθυνση χωρίς να παγώνει τον κύκλο ελέγχου.
-    """
     v_safe = np.copy(v_cmd)
+    if p_end[0] <= WORKSPACE_LIMITS['x'][0] and v_safe[0] < 0: v_safe[0] = 0.0
+    elif p_end[0] >= WORKSPACE_LIMITS['x'][1] and v_safe[0] > 0: v_safe[0] = 0.0
 
-    # Έλεγχος X limits
-    if p_end[0] <= WORKSPACE_LIMITS['x'][0] and v_safe[0] < 0:
-        v_safe[0] = 0.0
-    elif p_end[0] >= WORKSPACE_LIMITS['x'][1] and v_safe[0] > 0:
-        v_safe[0] = 0.0
+    if p_end[1] <= WORKSPACE_LIMITS['y'][0] and v_safe[1] < 0: v_safe[1] = 0.0
+    elif p_end[1] >= WORKSPACE_LIMITS['y'][1] and v_safe[1] > 0: v_safe[1] = 0.0
 
-    # Έλεγχος Y limits
-    if p_end[1] <= WORKSPACE_LIMITS['y'][0] and v_safe[1] < 0:
-        v_safe[1] = 0.0
-    elif p_end[1] >= WORKSPACE_LIMITS['y'][1] and v_safe[1] > 0:
-        v_safe[1] = 0.0
-
-    # Έλεγχος Z limits (Προστασία Πρόσκρουσης στο Τραπέζι)
-    if p_end[2] <= WORKSPACE_LIMITS['z'][0] and v_safe[2] < 0:
-        v_safe[2] = 0.0
-        print("\n[SAFETY WARNING] Πλησίασμα στο τραπέζι! Η κίνηση προς τα κάτω μπλοκαρίστηκε.", end="")
-    elif p_end[2] >= WORKSPACE_LIMITS['z'][1] and v_safe[2] > 0:
-        v_safe[2] = 0.0
+    if p_end[2] <= WORKSPACE_LIMITS['z'][0] and v_safe[2] < 0: v_safe[2] = 0.0
+    elif p_end[2] >= WORKSPACE_LIMITS['z'][1] and v_safe[2] > 0: v_safe[2] = 0.0
 
     return v_safe
 
 # ==========================================
-# 2. ΚΥΡΙΟΣ ΚΥΚΛΟΣ ΕΛΕΓΧΟΥ (MAIN TELEOP LOOP)
+# 3. ΚΥΡΙΟΣ ΚΥΚΛΟΣ ΕΛΕΓΧΟΥ (MAIN LOOP)
 # ==========================================
 def main():
-    print("="*60)
-    print(" REAL-TIME TELEOPERATION FRAMEWORK - MYARM 300 PI (7-DOF)")
-    print("="*60)
-
-    # Αρχικοποίηση Controller & Kinematics Engine
     try:
-        controller = PS2Controller()
+        # Αυξήσαμε το deadzone στο 0.15 για να σταματήσει η αυτόματη κίνηση
+        controller = PS2Controller(deadzone=0.15)
         kinematics = KinematicsEngine7DOF()
     except Exception as e:
         print(f"Σφάλμα Αρχικοποίησης: {e}")
         return
 
-    # Αρχική κατάσταση αρθρώσεων
+    # Αρχικοποίηση γωνιών από το πραγματικό ρομπότ
     q_current = np.zeros(DOF)
+    if arm is not None:
+        try:
+            angles = arm.get_radians()
+            if angles and len(angles) == DOF:
+                q_current = np.array(angles)
+                print("[HARDWARE] Αρχικές γωνίες ρομπότ αναγνώστηκαν επιτυχώς.")
+        except Exception as e:
+            print(f"[HARDWARE] Αποτυχία ανάγνωσης γωνιών: {e}")
 
-    print("\n[SYSTEM READY] Ο κύκλος ελέγχου εκτελείται στα 30 Hz.")
-    print(" - Αριστερός Μοχλός : Κίνηση X / Y")
-    print(" - Δεξιός Μοχλός    : Κίνηση Z (Up/Down) & Περιστροφή Yaw")
-    print(" - Κουμπί A         : Grasp (Suction ON)")
-    print(" - Κουμπί B         : Release (Suction OFF)")
-    print(" - Πατήστε Ctrl+C για έξοδο.\n")
+    prev_vacuum_state = False
+
+    print("\n--- ΤΗΛΕΧΕΙΡΙΣΜΟΣ ΕΝΕΡΓΟΣ ---")
+    print(" - Αφήστε τους μοχλούς: Η ταχύτητα πρέπει να είναι ΑΚΡΙΒΩΣ 0.0")
+    print(" - Πατήστε Ctrl+C για άμεσο τερματισμό.\n")
 
     try:
         while True:
             loop_start_time = time.time()
 
-            # 1. Read PS2 Joystick & Gripper Inputs
+            # 1. Read Inputs
             v_cmd = controller.get_cartesian_velocity()
             vacuum_state = controller.process_gripper_events()
 
-            # 2. Forward Kinematics & Geometric Jacobian Computation (6x7)
-            p_end, J = kinematics.compute_fk_and_jacobian(q_current)
+            # 2. ΑΥΣΤΗΡΟ ΦΙΛΤΡΑΡΙΣΜΑ DRIFT (Noise Threshold)
+            if np.linalg.norm(v_cmd[:3]) < 0.005 and abs(v_cmd[5]) < 0.01:
+                v_cmd = np.zeros(6)  # Απόλυτος μηδενισμός αν δεν κουνάτε τους μοχλούς
 
-            # 3. Apply Cartesian Safety Box Limits
+            # 3. Hardware Vacuum Control
+            if arm is not None and vacuum_state != prev_vacuum_state:
+                arm.set_vacuum_zone(1 if vacuum_state else 0)
+                prev_vacuum_state = vacuum_state
+
+            # 4. Kinematics & Safety Box
+            p_end, J = kinematics.compute_fk_and_jacobian(q_current)
             v_safe = enforce_cartesian_limits(p_end, v_cmd)
 
-            # 4. Compute Differential IK (DLS + Null-Space Projection)
+            # 5. Differential IK Solution & Motion Dispatch
             if np.linalg.norm(v_safe) > 0:
                 q_dot = kinematics.solve_dls_ik(J, v_safe, q_current)
-
-                # Integration για τη νέα θέση αρθρώσεων
                 q_next = q_current + q_dot * DT
-
-                # 5. Apply Joint Limits (Clip)
                 q_current = np.clip(q_next, Q_MIN, Q_MAX)
 
-            # 6. Real-Time Visual Feedback στο Console
-            gripper_label = "GRASPING [ON]" if vacuum_state else "RELEASED [OFF]"
-            q_deg = np.degrees(q_current)
-            # Αντί για Q1 μόνο, τυπώνουμε όλες τις γωνίες σε μοίρες
-            q_str = ", ".join([f"{deg:5.1f}°" for deg in q_deg])
-            print(f"EE Pose: [{p_end[0]:.2f}, {p_end[1]:.2f}, {p_end[2]:.2f}]m | Joints: [{q_str}] | Gripper: {gripper_label}  ", end="\r")
+                # ΑΠΟΣΤΟΛΗ ΣΤΟ ΠΡΑΓΜΑΤΙΚΟ ΡΟΜΠΟΤ
+                if arm is not None:
+                    # Αποστολή γωνιών (speed 80%)
+                    arm.send_radians(q_current.tolist(), 80)
 
-            # 7. Maintain 30 Hz Cycle Frequency
+            # 6. Console Display
+            q_deg = np.degrees(q_current)
+            q_str = ", ".join([f"{deg:5.1f}°" for deg in q_deg])
+            gripper_label = "GRASP [ON]" if vacuum_state else "RELEASE [OFF]"
+            print(f"EE Pose: [{p_end[0]:.2f}, {p_end[1]:.2f}, {p_end[2]:.2f}]m | Joints: [{q_str}] | Vacuum: {gripper_label}  ", end="\r")
+
+            # 7. 30 Hz Sync
             elapsed = time.time() - loop_start_time
             if elapsed < DT:
                 time.sleep(DT - elapsed)
 
     except KeyboardInterrupt:
-        print("\n\n" + "="*60)
-        print("[SYSTEM SHUTDOWN] Ο κύκλος ελέγχου τερματίστηκε με ασφάλεια.")
-        print("="*60)
+        print("\n\n[SHUTDOWN] Τερματισμός τηλεχειρισμού.")
+        if arm is not None:
+            arm.set_vacuum_zone(0)
 
 if __name__ == "__main__":
     main()
