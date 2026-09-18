@@ -58,16 +58,16 @@ class PS2Controller:
         vz = -ry * self.scale_pos  # Πάνω / Κάτω
         
         wx = 0.0
-        wy = 0.0
-        wz = 0.0 #  rx * self.scale_rot  # Περιστροφή End-Effector
+        wy = -vx * 1.5             
+        wz =  rx * self.scale_rot  # Yaw Περιστροφή
 
-        v_cmd = np.array([vx, vy, vz, wx, wy, wz])
+        # Noise Cutoffs
+        if abs(vx) < 0.002: vx = 0.0
+        if abs(vy) < 0.002: vy = 0.0
+        if abs(vz) < 0.002: vz = 0.0
+        if abs(wz) < 0.020: wz = 0.0
 
-        # Εγγυημένος μηδενισμός αν η συνολική εντολή είναι ελάχιστη
-        if np.max(np.abs(v_cmd)) < 0.001:
-            return np.zeros(6)
-
-        return v_cmd
+        return np.array([vx, vy, vz, wx, wy, wz])
 
     def process_gripper_events(self):
         """A (Grasp) & B (Release) Buttons."""
