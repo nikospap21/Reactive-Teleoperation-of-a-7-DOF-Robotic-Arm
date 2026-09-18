@@ -29,14 +29,14 @@ Q_MIN = np.array([-2.79, -1.57, -2.79, -1.57, -2.79, -1.57, -2.79])
 Q_MAX = np.array([ 2.79,  1.57,  2.79,  1.57,  2.79,  1.57,  2.79])
 
 # ΣΤΑΣΗ ΕΚΚΙΝΗΣΗΣ ΕΚΤΟΣ ΙΔΙΟΜΟΡΦΙΑΣ (Σχεδόν όρθιο, με ελαφριά κλίση)
-Q_HOME = np.array([0.0, -0.15, 0.0, 0.30, 0.0, -0.15, 0.0])
+Q_HOME = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
 # ==========================================
 # 3. ΚΥΡΙΟΣ ΚΥΚΛΟΣ ΕΛΕΓΧΟΥ (MAIN LOOP)
 # ==========================================
 def main():
     try:
-        controller = PS2Controller(deadzone=0.20)
+        controller = PS2Controller(deadzone=0.1)
         kinematics = KinematicsEngine7DOF()
     except Exception as e:
         print(f"Σφάλμα Αρχικοποίησης: {e}")
@@ -87,7 +87,7 @@ def main():
                 if arm is not None:
                     arm.send_radians(q_current.tolist(), 70)
 
-            v_str = f"V:[{v_cmd[0]:.2f},{v_cmd[1]:.2f},{v_cmd[2]:.2f}] Wz:{v_cmd[5]:.2f}"
+            v_str = f"V:[{v_cmd[0]:.2f},{v_cmd[1]:.2f},{v_cmd[2]:.2f}] Wx:{v_cmd[3]:.2f} Wy:{v_cmd[4]:.2f} Wz:{v_cmd[5]:.2f}"
             p_str = f"XYZ:[{p_end[0]:.2f},{p_end[1]:.2f},{p_end[2]:.2f}]m"
             print(f"{p_str} | {v_str}  ", end="\r")
 
