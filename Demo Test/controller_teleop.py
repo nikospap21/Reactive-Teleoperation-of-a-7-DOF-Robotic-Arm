@@ -59,7 +59,7 @@ class PS2Controller:
         
         wx = 0.0
         wy = 0.0
-        wz =  rx * self.scale_rot  # Περιστροφή End-Effector
+        wz = 0.0 #  rx * self.scale_rot  # Περιστροφή End-Effector
 
         v_cmd = np.array([vx, vy, vz, wx, wy, wz])
 
