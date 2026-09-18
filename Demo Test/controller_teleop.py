@@ -1,79 +1,97 @@
-import struct
-import fcntl
-import os
-import sys
-import rclpy  # type: ignore
-from rclpy.node import Node  # type: ignore
-from std_msgs.msg import Bool  # type: ignore
-from sensor_msgs.msg import JointState  # type: ignore
+import pygame #  type:ignore
+import numpy as np
 
-class DirectXboxTeleop(Node):
-    def __init__(self):
-        super().__init__('direct_xbox_teleop')
-        self.gripper_pub = self.create_publisher(Bool, '/suction_gripper_state', 10)
-        self.joint_pub = self.create_publisher(JointState, '/joint_states', 10)
+class PS2Controller:
+    def __init__(self, device_index=0, deadzone=0.08):
+        """
+        Αρχικοποίηση PS2 Controller & Παραμέτρων Mapping
+        """
+        pygame.init()
+        pygame.joystick.init()
+
+        if pygame.joystick.get_count() == 0:
+            raise RuntimeError("Σφάλμα: Δεν βρέθηκε χειριστήριο PS2 συνδεδεμένο!")
+
+        self.joystick = pygame.joystick.Joystick(device_index)
+        self.joystick.init()
+        print(f"[PS2 Controller] Ενεργό: {self.joystick.get_name()}")
+
+        self.deadzone = deadzone
+        self.vacuum_state = False  # False = Released, True = Grasped
+
+        # Scales Ταχυτήτων (m/s για μετατόπιση, rad/s για περιστροφή)
+        self.scale_pos = 0.05
+        self.scale_rot = 0.2
+
+    def _apply_deadzone(self, value):
+        """Φιλτράρισμα νεκρής ζώνης για αποφυγή drift."""
+        return 0.0 if abs(value) < self.deadzone else value
+
+    def get_cartesian_velocity(self):
+        """
+        Διαβάζει τους μοχλούς και επιστρέφει το διάνυσμα ταχύτητας v (6x1):
+        v = [vx, vy, vz, wx, wy, wz]
+        """
+        pygame.event.pump()
+
+        # Ανάγνωση Αξόνων
+        lx = self._apply_deadzone(self.joystick.get_axis(0))  # Left/Right
+        ly = self._apply_deadzone(self.joystick.get_axis(1))  # Forward/Backward
+        rx = self._apply_deadzone(self.joystick.get_axis(2))  # Yaw Rotation
+        ry = self._apply_deadzone(self.joystick.get_axis(3))  # Up/Down
+
+        # Αντιστοίχιση σε Καρτεσιανές Ταχύτητες
+        vx = -ly * self.scale_pos  # Πρόσω / Πίσω
+        vy =  lx * self.scale_pos  # Αριστερά / Δεξιά
+        vz = -ry * self.scale_pos  # Πάνω / Κάτω
         
-        # Στόχευση στο πραγματικό Xbox controller
-        dev_path = '/dev/input/js2'
-        try:
-            self.js_file = open(dev_path, 'rb')
-            fd = self.js_file.fileno()
-            flags = fcntl.fcntl(fd, fcntl.F_GETFL)
-            fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
-            self.get_logger().info(f"Σύνδεση επιτυχής στο {dev_path}!")
-        except Exception as e:
-            self.get_logger().error(f"Σφάλμα ανοίγματος {dev_path}: {e}")
-            sys.exit()
+        wx = 0.0                   # Roll (σταθερό)
+        wy = 0.0                   # Pitch (σταθερό)
+        wz =  rx * self.scale_rot  # Yaw (περιστροφή end-effector)
 
-        self.gripper_state = False
-        self.create_timer(0.01, self.poll_joystick)
+        return np.array([vx, vy, vz, wx, wy, wz])
 
-    def poll_joystick(self):
-        try:
-            while True:
-                data = self.js_file.read(8)
-                if not data:
-                    break
-                
-                time, value, type_, number = struct.unpack('IhBB', data)
-                type_clean = type_ & ~0x80
+    def process_gripper_events(self):
+        """
+        Διαχειρίζεται τα κουμπιά L1 (Grasp) και R1 (Release)
+        και εμφανίζει ξεκάθαρο μήνυμα στην κονσόλα.
+        """
+        pygame.event.pump()
 
-                # Button Events (Type 1)
-                if type_clean == 1:
-                    if value == 1: # Button Press
-                        self.get_logger().info(f"Button {number} Pressed!")
-                        
-                        if number == 0: # Button A -> Grasp
-                            self.gripper_state = True
-                            self.publish_gripper("GRASP")
-                        elif number == 1: # Button B -> Release
-                            self.gripper_state = False
-                            self.publish_gripper("RELEASE")
+        # Button 4 = L1 (Grasp / Suction ON)
+        if self.joystick.get_button(0):
+            if not self.vacuum_state:
+                self.vacuum_state = True
+                print("\n" + "="*40)
+                print(" >>> [ACTION: GRASP] Suction Pump: ON <<<")
+                print("="*40 + "\n")
 
-                # Axis Events (Type 2 - Μοχλοί)
-                elif type_clean == 2:
-                    if abs(value) > 10000: # Deadzone filter
-                        self.get_logger().info(f"Axis {number} Value: {value}")
+        # Button 5 = R1 (Release / Suction OFF)
+        elif self.joystick.get_button(1):
+            if self.vacuum_state:
+                self.vacuum_state = False
+                print("\n" + "="*40)
+                print(" >>> [ACTION: RELEASE] Suction Pump: OFF <<<")
+                print("="*40 + "\n")
 
-        except BlockingIOError:
-            pass
+        return self.vacuum_state
 
-    def publish_gripper(self, state_str):
-        msg = Bool()
-        msg.data = self.gripper_state
-        self.gripper_pub.publish(msg)
-        self.get_logger().info(f"Vacuum Gripper: {state_str}")
-
-def main(args=None):
-    rclpy.init(args=args)
-    node = DirectXboxTeleop()
+# --- Αυτόνομη Δοκιμή (Standalone Test) ---
+if __name__ == "__main__":
+    import time
     try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        node.destroy_node()
-        rclpy.shutdown()
+        controller = PS2Controller()
+        print("\n--- TEST MODE: Κουνήστε τους μοχλούς & πατήστε L1 / R1 ---")
+        
+        while True:
+            v_cmd = controller.get_cartesian_velocity()
+            gripper_status = controller.process_gripper_events()
 
-if __name__ == '__main__':
-    main()
+            # Τύπωμα ταχυτήτων αν υπάρχει κίνηση
+            if np.linalg.norm(v_cmd) > 0:
+                print(f"Velocities -> Vx: {v_cmd[0]:.3f} | Vy: {v_cmd[1]:.3f} | Vz: {v_cmd[2]:.3f} | Wz: {v_cmd[5]:.3f}", end="\r")
+
+            time.sleep(1/30)  # 30 Hz Loop
+
+    except KeyboardInterrupt:
+        print("\nΤερματισμός δοκιμής.")
