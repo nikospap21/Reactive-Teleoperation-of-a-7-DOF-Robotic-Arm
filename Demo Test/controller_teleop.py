@@ -19,8 +19,8 @@ class PS2Controller:
         self.vacuum_state = False
 
         # Scalers Ταχυτήτων (m/s & rad/s)
-        self.scale_pos = 0.04
-        self.scale_rot = 0.15
+        self.scale_pos = 0.08
+        self.scale_rot = 0.30
 
     def _apply_deadzone(self, value):
         """Αυστηρή νεκρή ζώνη: Μηδενίζει οτιδήποτε μικρότερο από το deadzone."""
