@@ -69,6 +69,25 @@ def main():
         while True:
             loop_start_time = time.time()
 
+            # 1. Έλεγχος για RESET EVENT (Κουμπί Start/X)
+            if controller.process_reset_event():
+                if arm is not None:
+                    arm.power_on()
+                    time.sleep(0.2)
+                    arm.send_radians(Q_HOME.tolist(), 30)  # Αργή επαναφορά (speed 30)
+                    time.sleep(2.5)  # Αναμονή ολοκλήρωσης κίνησης
+                    
+                    angles = arm.get_radians()
+                    if angles and len(angles) == DOF:
+                        q_current = np.array(angles)
+                    else:
+                        q_current = np.copy(Q_HOME)
+                else:
+                    q_current = np.copy(Q_HOME)
+                
+                print("[RESET COMPLETE] Το ρομπότ επανήλθε στη μηδενική θέση.\n")
+                continue  # Παράκαμψη του υπολοίπου loop για αυτό το frame
+
             v_cmd = controller.get_cartesian_velocity()
             vacuum_state = controller.process_gripper_events()
 
