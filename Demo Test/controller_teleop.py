@@ -95,6 +95,24 @@ class PS2Controller:
 
         return self.vacuum_state
 
+    def process_reset_event(self):
+        """
+        Ελέγχει αν πατήθηκε το κουμπί RESET (π.χ. Start Button).
+        Επιστρέφει True αν πατήθηκε, αλλιώς False.
+        """
+        pygame.event.pump()
+        num_buttons = self.joystick.get_numbuttons()
+
+        # Κουμπί Start (συνήθως index 7 ή 9) ή κουμπί X/Cross (index 2)
+        reset_button_indices = [7, 9, 2]
+
+        for btn_idx in reset_button_indices:
+            if num_buttons > btn_idx and self.joystick.get_button(btn_idx):
+                print("\n >>> [ACTION: HOME RESET] Επαναφορά στη μηδενική θέση... <<< \n")
+                return True
+
+        return False
+
 # --- TEST STANDALONE ---
 if __name__ == "__main__":
     import time
