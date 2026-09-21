@@ -92,9 +92,6 @@ def main():
             v_cmd = controller.get_cartesian_velocity()
             vacuum_state = controller.process_gripper_events()
 
-            if arm is not None and vacuum_state != prev_vacuum_state:
-                arm.set_vacuum_zone(1 if vacuum_state else 0)
-                prev_vacuum_state = vacuum_state
 
             p_end, J = kinematics.compute_fk_and_jacobian(q_current)
 
