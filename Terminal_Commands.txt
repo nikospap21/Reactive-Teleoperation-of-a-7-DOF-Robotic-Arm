@@ -7,6 +7,8 @@ Close ROS2 : Ctrl-C
 Joystick : sudo apt update && sudo apt install -y joystick
 
 Give device rights: sudo chmod 666 /dev/input/js2 
+Give port rights: sudo chmod 666 /dev/ttyAMA0
+Give user rights: sudo usermod -aG dialout $USER
 
 See if it recognizes the controller and see which handler it is : cat /proc/bus/input/devices | grep -E "Name|Handlers" 
 
