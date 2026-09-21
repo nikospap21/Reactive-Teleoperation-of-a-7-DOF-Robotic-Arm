@@ -35,7 +35,7 @@ class PS2Controller:
         GPIO.setup(PIN_21, GPIO.OUT)
         
         GPIO.output(PIN_20, GPIO.LOW)
-        GPIO.output(PIN_21, GPIO.LOW) # Αρχική κατάσταση δεν ρουφάει
+        GPIO.output(PIN_21, GPIO.HIGH) #Αρχική κατάσταση δεν ρουφάει
 
     def _apply_deadzone(self, value):
         """Αυστηρή νεκρή ζώνη: Μηδενίζει οτιδήποτε μικρότερο από το deadzone."""
@@ -112,7 +112,7 @@ class PS2Controller:
             if self.vacuum_state:
                 self.vacuum_state = False
                 GPIO.output(PIN_20, GPIO.LOW)
-                GPIO.output(PIN_21, GPIO.LOW) # Απενεργοποίηση Relay
+                GPIO.output(PIN_21, GPIO.HIGH) # Ενεργοποίηση Relay
                 print("\n >>> [ACTION: RELEASE (Button B)] Suction Pump: OFF <<< \n")
 
         return self.vacuum_state
