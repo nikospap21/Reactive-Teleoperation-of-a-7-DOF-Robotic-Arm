@@ -89,10 +89,11 @@ class PS2Controller:
         wz = 0.0 # rz * self.scale_rot  # Yaw Περιστροφή
 
         # Noise Cutoffs
-        #if abs(vx) < 0.002: vx = 0.0
-        #if abs(vy) < 0.002: vy = 0.0
-        #if abs(vz) < 0.002: vz = 0.0
-        #if abs(wz) < 0.020: wz = 0.0
+        if abs(vx) < 0.02: vx = 0.0
+        if abs(vy) < 0.02: vy = 0.0
+        if abs(vz) < 0.02: vz = 0.0
+        if abs(wx) < 0.04: wx = 0.0
+        if abs(wy) < 0.04: wy = 0.0
 
         return np.array([vx, vy, vz, wx, wy, wz])
 
@@ -111,7 +112,7 @@ class PS2Controller:
             if self.vacuum_state:
                 self.vacuum_state = False
                 GPIO.output(PIN_20, GPIO.LOW)
-                GPIO.output(PIN_21, GPIO.LOW)) # Ενεργοποίηση Relay
+                GPIO.output(PIN_21, GPIO.LOW) # Ενεργοποίηση Relay
                 print("\n >>> [ACTION: RELEASE (Button B)] Suction Pump: OFF <<< \n")
 
         return self.vacuum_state
