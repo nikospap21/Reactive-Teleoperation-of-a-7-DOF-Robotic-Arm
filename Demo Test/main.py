@@ -1,6 +1,7 @@
 import time
 import numpy as np
 from pymycobot import MyArm # type:ignore
+import RPi.GPIO as GPIO # type:ignore
 
 from controller_teleop import PS2Controller
 from kinematics_new import KinematicsEngine7DOF
