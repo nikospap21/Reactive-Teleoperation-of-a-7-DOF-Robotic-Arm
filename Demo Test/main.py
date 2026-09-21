@@ -114,7 +114,7 @@ def main():
 
     except KeyboardInterrupt:
         print("\n\n[SHUTDOWN] Τερματισμός τηλεχειρισμού.")
-        GPIO.output(20, GPIO.HIGH) # Απενεργοποίηση αντλίας
+        GPIO.output(20, GPIO.LOW) # Απενεργοποίηση αντλίας
         GPIO.cleanup()
 
 if __name__ == "__main__":
