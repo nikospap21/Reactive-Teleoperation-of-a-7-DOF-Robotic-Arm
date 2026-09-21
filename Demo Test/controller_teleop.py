@@ -77,12 +77,12 @@ class PS2Controller:
         # Αντιστοίχιση σε Καρτεσιανές Ταχύτητες [vx, vy, vz, wx, wy, wz]
         vx = -lx * self.scale_pos  # Πρόσω / Πίσω
         vy =  ly * self.scale_pos  # Αριστερά / Δεξιά
-        vz_up = lz_up * self.scale_pos_z  # Πάνω / Κάτω
-        vz_down = lz_down * self.scale_pos_z 
+        vz= (lz_up -lz_down) * self.scale_pos_z  # Πάνω / Κάτω
+        
         
         wx = rx * self.scale_rot  # Yaw Περιστροφή
         wy = ry * self.scale_rot  # Yaw Περιστροφή          
-        #wz = rz * self.scale_rot  # Yaw Περιστροφή
+        wz = 0.0 # rz * self.scale_rot  # Yaw Περιστροφή
 
         # Noise Cutoffs
         #if abs(vx) < 0.002: vx = 0.0
@@ -90,7 +90,7 @@ class PS2Controller:
         #if abs(vz) < 0.002: vz = 0.0
         #if abs(wz) < 0.020: wz = 0.0
 
-        return np.array([vx, vy, vz_up, vz_down, wx, wy])
+        return np.array([vx, vy, vz, wx, wy, wz])
 
     def process_gripper_events(self):
         """A (Grasp) & B (Release) Buttons."""
