@@ -116,8 +116,8 @@ def main():
 
     except KeyboardInterrupt:
         print("\n\n[SHUTDOWN] Τερματισμός τηλεχειρισμού.")
-        if arm is not None:
-            arm.set_vacuum_zone(0)
+        GPIO.output(20, GPIO.HIGH) # Απενεργοποίηση αντλίας
+        GPIO.cleanup()
 
 if __name__ == "__main__":
     main()
