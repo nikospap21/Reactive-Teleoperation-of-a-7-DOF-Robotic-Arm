@@ -1,5 +1,9 @@
 import pygame #type:ignore
 import numpy as np
+import RPi.GPIO as GPIO # type:ignore
+
+# Ορισμός του GPIO Pin που ελέγχει το Relay (π.χ. GPIO 21)
+PUMP_PIN = 21
 
 class PS2Controller:
     def __init__(self, device_index=0, deadzone = 0.1):
@@ -22,6 +26,12 @@ class PS2Controller:
         self.scale_pos = 0.1
         self.scale_pos_z = 0.2
         self.scale_rot = 0.3
+
+        # Αρχικοποίηση GPIO για το Relay
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setwarnings(False)
+        GPIO.setup(PUMP_PIN, GPIO.OUT)
+        GPIO.output(PUMP_PIN, GPIO.LOW)  # Αρχικά σβηστή αντλία
 
     def _apply_deadzone(self, value):
         """Αυστηρή νεκρή ζώνη: Μηδενίζει οτιδήποτε μικρότερο από το deadzone."""
@@ -89,11 +99,13 @@ class PS2Controller:
         if self.joystick.get_numbuttons() > 0 and self.joystick.get_button(0):
             if not self.vacuum_state:
                 self.vacuum_state = True
+                GPIO.output(PUMP_PIN, GPIO.HIGH) # Ενεργοποίηση Relay
                 print("\n >>> [ACTION: GRASP (Button A)] Suction Pump: ON <<< \n")
 
         elif self.joystick.get_numbuttons() > 1 and self.joystick.get_button(1):
             if self.vacuum_state:
                 self.vacuum_state = False
+                GPIO.output(PUMP_PIN, GPIO.LOW) # Ενεργοποίηση Relay
                 print("\n >>> [ACTION: RELEASE (Button B)] Suction Pump: OFF <<< \n")
 
         return self.vacuum_state
