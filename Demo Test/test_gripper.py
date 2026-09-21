@@ -1,31 +1,20 @@
+import RPi.GPIO as GPIO
 import time
-from pymycobot import MyArm # type:ignore
 
-print("--- ΔΙΑΓΝΩΣΤΙΚΟ TEST RELAY (PINS 16 & 19) ---")
-try:
-    arm = MyArm("/dev/ttyAMA0", 115200)
-    time.sleep(0.5)
+# Επιλογή Pin (Δοκιμάστε το 20, 26, 16, 21)
+PIN = 20  # Αλλάξτε το σε 26 ή 16 αν χρειαστεί
 
-    print("\n1. Δοκιμή: Pin 16 LOW (0), Pin 19 HIGH (1)")
-    arm.set_basic_output(16, 0)
-    arm.set_basic_output(19, 1)
-    time.sleep(2)
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(PIN, GPIO.OUT)
 
-    print("2. Δοκιμή: Pin 16 HIGH (1), Pin 19 LOW (0)")
-    arm.set_basic_output(16, 1)
-    arm.set_basic_output(19, 0)
-    time.sleep(2)
+print(f"--- ΔΟΚΙΜΗ GPIO {PIN} ---")
+print("1. Ενεργοποίηση (Relay LOW)...")
+GPIO.output(PIN, GPIO.LOW)   # Σχεδόν όλα τα relays ενεργοποιούνται με LOW (0)
+time.sleep(2)
 
-    print("3. Δοκιμή: ΚΑΙ ΤΑ ΔΥΟ LOW (0, 0)")
-    arm.set_basic_output(16, 0)
-    arm.set_basic_output(19, 0)
-    time.sleep(2)
+print("2. Απενεργοποίηση (Relay HIGH)...")
+GPIO.output(PIN, GPIO.HIGH)  # Relay OFF
+time.sleep(1)
 
-    print("4. Απενεργοποίηση: ΚΑΙ ΤΑ ΔΥΟ HIGH (1, 1)")
-    arm.set_basic_output(16, 1)
-    arm.set_basic_output(19, 1)
-
-    print("\n[ΤΕΛΟΣ ΔΟΚΙΜΗΣ] Ακούστηκε κάποιο 'κλικ' ή δούλεψε η αντλία σε κάποιο βήμα;")
-
-except Exception as e:
-    print(f"Σφάλμα επικοινωνίας: {e}")
+GPIO.cleanup()
+print("Δοκιμή ολοκληρώθηκε!")
