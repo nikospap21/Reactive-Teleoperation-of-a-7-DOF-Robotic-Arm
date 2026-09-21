@@ -48,28 +48,31 @@ class PS2Controller:
         
         raw_lx = self.joystick.get_axis(0) if num_axes > 0 else 0.0
         raw_ly = self.joystick.get_axis(1) if num_axes > 1 else 0.0
-        raw_lz = self.joystick.get_axis(4) if num_axes > 4 else 0.0
-        raw_rx = self.joystick.get_axis(2) if num_axes > 2 else -1.0
-        raw_ry = self.joystick.get_axis(5) if num_axes > 5 else -1.0
-        raw_rz = self.joystick.get_axis(3) if num_axes > 3 else 0.0
+        raw_lz_up = self.joystick.get_axis(5) if num_axes > 5 else -1.0
+        raw_lz_down = self.joystick.get_axis(2) if num_axes > 2 else -1.0
+        raw_rx = self.joystick.get_axis(4) if num_axes > 4 else 0.0
+        raw_ry = self.joystick.get_axis(3) if num_axes > 3 else 0.0
+        #raw_rz = self.joystick.get_axis(3) if num_axes > 3 else 0.0
 
         # Εφαρμογή νεκρής ζώνης
         lx = self._apply_deadzone(raw_lx)
         ly = self._apply_deadzone(raw_ly)
-        lz = self._apply_deadzone(raw_lz)
-        rx = self.normalize_trigger(raw_rx)
-        ry = self.normalize_trigger(raw_ry)
-        rz = self._apply_deadzone(raw_rz)
+        lz_up = self.normalize_trigger(raw_lz_up)
+        lz_down = self.normalize_trigger(raw_lz_down)
+        rx = self._apply_deadzone(raw_rx)
+        ry = self._apply_deadzone(raw_ry)
+        #rz = self._apply_deadzone(raw_rz)
 
 
         # Αντιστοίχιση σε Καρτεσιανές Ταχύτητες [vx, vy, vz, wx, wy, wz]
         vx = -lx * self.scale_pos  # Πρόσω / Πίσω
         vy =  ly * self.scale_pos  # Αριστερά / Δεξιά
-        vz = lz * self.scale_pos_z  # Πάνω / Κάτω
+        vz_up = lz_up * self.scale_pos_z  # Πάνω / Κάτω
+        vz_down = lz_down * self.scale_pos_z 
         
         wx = rx * self.scale_rot  # Yaw Περιστροφή
         wy = ry * self.scale_rot  # Yaw Περιστροφή          
-        wz = rz * self.scale_rot  # Yaw Περιστροφή
+        #wz = rz * self.scale_rot  # Yaw Περιστροφή
 
         # Noise Cutoffs
         #if abs(vx) < 0.002: vx = 0.0
@@ -77,7 +80,7 @@ class PS2Controller:
         #if abs(vz) < 0.002: vz = 0.0
         #if abs(wz) < 0.020: wz = 0.0
 
-        return np.array([vx, vy, vz, wx, wy, wz])
+        return np.array([vx, vy, vz_up, vz_down, wx, wy])
 
     def process_gripper_events(self):
         """A (Grasp) & B (Release) Buttons."""
