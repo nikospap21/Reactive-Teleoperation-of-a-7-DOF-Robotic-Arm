@@ -112,7 +112,7 @@ class PS2Controller:
             if self.vacuum_state:
                 self.vacuum_state = False
                 GPIO.output(PIN_20, GPIO.LOW)
-                GPIO.output(PIN_21, GPIO.LOW) # Ενεργοποίηση Relay
+                GPIO.output(PIN_21, GPIO.LOW) # Απενεργοποίηση Relay
                 print("\n >>> [ACTION: RELEASE (Button B)] Suction Pump: OFF <<< \n")
 
         return self.vacuum_state
