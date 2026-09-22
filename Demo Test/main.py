@@ -4,7 +4,7 @@ from pymycobot import MyArm # type:ignore
 import RPi.GPIO as GPIO # type:ignore
 
 from controller_teleop import PS2Controller
-from kinematics_new import KinematicsEngine7DOF
+from kinematics import KinematicsEngine7DOF
 
 # ==========================================
 # 1. ΕΣΩΤΕΡΙΚΗ ΣΥΝΔΕΣΗ (Raspberry Pi -> MyArm)
