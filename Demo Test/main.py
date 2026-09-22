@@ -26,114 +26,6 @@ except Exception as e:
 DOF = 7
 DT = 1.0 / 30.0
 
-# 1. ΓΩΝΙΑΚΑ ΟΡΙΑ ΑΡΘΡΩΣΕΩΝ (Joint Limits in Radians)
-Q_MIN = np.array([-2.79, -1.57, -2.79, -1.57, -2.79, -1.57, -2.79])
-Q_MAX = np.array([ 2.79,  1.57,  2.79,  1.57,  2.79,  1.57,  2.79])
-
-# 2. ΟΡΙΑ ΤΑΧΥΤΗΤΑΣ ΑΡΘΡΩΣΕΩΝ (Joint Velocity Limits in rad/s)
-Q_DOT_MAX = np.array([1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5]) 
-
-# 3. ΟΡΙΑ ΧΩΡΟΥ ΕΡΓΑΣΙΑΣ (Workspace Limits in meters)
-# [X_min, X_max, Y_min, Y_max, Z_min, Z_max]
-WS_X_MIN, WS_X_MAX = -0.35, 0.35
-WS_Y_MIN, WS_Y_MAX = -0.35, 0.35
-WS_Z_MIN, WS_Z_MAX =  0.02, 0.45  # Z_min = 0.02m για να μην χτυπάει στο τραπέζι
-
-# ΣΤΑΣΗ ΕΚΚΙΝΗΣΗΣ ΕΚΤΟΣ ΙΔΙΟΜΟΡΦΙΑΣ (Σχεδόν όρθιο, με ελαφριά κλίση)
-Q_HOME = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-
-# ==========================================
-# 3. ΚΥΡΙΟΣ ΚΥΚΛΟΣ ΕΛΕΓΧΟΥ (MAIN LOOP)
-# ==========================================
-def main():
-    try:
-        controller = PS2Controller(deadzone=0.1)
-        kinematics = KinematicsEngine7DOF()
-    except Exception as e:
-        print(f"Σφάλμα Αρχικοποίησης: {e}")
-        return
-
-    # AUTO-RESET ΣΤΗΝ ΑΣΦΑΛΗ ΑΡΧΙΚΗ ΘΕΣΗ
-    q_current = np.copy(Q_HOME)
-    if arm is not None:
-        print("\n[AUTO-RESET] Μετάβαση σε Ασφαλή Αρχική Στάση (Εκτός Ιδιομορφίας)...")
-        try:
-            arm.power_on()
-            time.sleep(0.5)
-            # Στέλνουμε το ρομπότ στη στάση Q_HOME
-            arm.send_radians(Q_HOME.tolist(), 30)
-            time.sleep(2.5)
-            
-            angles = arm.get_radians()
-            if angles and len(angles) == DOF:
-                q_current = np.array(angles)
-            print("[AUTO-RESET COMPLETE] Το ρομπότ είναι έτοιμο και σταθερό!\n")
-        except Exception as e:
-            print(f"[RESET ERROR] {e}")
-
-    prev_vacuum_state = False
-
-    print("--- ΤΗΛΕΧΕΙΡΙΣΜΟΣ ΕΝΕΡΓΟΣ (30 Hz) ---")
-    print(" - Αφήστε τους μοχλούς: Το ρομπότ ΠΡΕΠΕΙ να μένει ΑΠΟΛΥΤΑ ΑΚΙΝΗΤΟ.\n")
-
-    try:
-        while True:
-            loop_start_time = time.time()
-
-            # 1. Έλεγχος για RESET EVENT (Κουμπί Start/X)
-            if controller.process_reset_event():
-                if arm is not None:
-                    arm.power_on()
-                    time.sleep(0.2)
-                    arm.send_radians(Q_HOME.tolist(), 30)  # Αργή επαναφορά (speed 30)
-                    time.sleep(2.5)  # Αναμονή ολοκλήρωσης κίνησης
-                    
-                    angles = arm.get_radians()
-                    if angles and len(angles) == DOF:
-                        q_current = np.array(angles)
-                    else:
-                        q_current = np.copy(Q_HOME)
-                else:
-                    q_current = np.copy(Q_HOME)
-                
-                print("[RESET COMPLETE] Το ρομπότ επανήλθε στη μηδενική θέση.\n")
-                continue  # Παράκαμψη του υπολοίπου loop για αυτό το frame
-
-            v_cmd = controller.get_cartesian_velocity()
-            vacuum_state = controller.process_gripper_events()
-
-
-            p_end, J = kinematics.compute_fk_and_jacobian(q_current)
-
-            # ΕΚΤΕΛΕΣΗ ΚΙΝΗΣΗΣ ΜΟΝΟ ΑΝ ΥΠΑΡΧΕΙ ΕΝΤΟΛΗ ΑΠΟ ΤΟ ΧΕΙΡΙΣΤΗΡΙΟ
-            import time
-import numpy as np
-from pymycobot import MyArm # type:ignore
-import RPi.GPIO as GPIO # type:ignore
-
-from controller_teleop import PS2Controller
-from kinematics_new import KinematicsEngine7DOF
-
-# ==========================================
-# 1. ΕΣΩΤΕΡΙΚΗ ΣΥΝΔΕΣΗ (Raspberry Pi -> MyArm)
-# ==========================================
-SERIAL_PORT = "/dev/ttyAMA0"
-BAUDRATE = 115200
-
-try:
-    arm = MyArm(SERIAL_PORT, BAUDRATE)
-    time.sleep(0.5)
-    print(f"[HARDWARE SUCCESS] Σύνδεση με MyArm 300 Pi ({SERIAL_PORT})")
-except Exception as e:
-    print(f"[HARDWARE ERROR] Αποτυχία σύνδεσης: {e}")
-    arm = None
-
-# ==========================================
-# 2. ΠΑΡΑΜΕΤΡΟΙ ΡΟΜΠΟΤ & ΑΣΦΑΛΕΙΑΣ
-# ==========================================
-DOF = 7
-DT = 1.0 / 30.0
-
 # Α) Γωνιακά Όρια Αρθρώσεων (σε rad)
 Q_MIN = np.array([-2.79, -1.57, -2.79, -1.57, -2.79, -1.57, -2.79])
 Q_MAX = np.array([ 2.79,  1.57,  2.79,  1.57,  2.79,  1.57,  2.79])
@@ -260,22 +152,6 @@ def main():
             GPIO.output(21, GPIO.LOW)
         except Exception:
             pass
-        GPIO.cleanup()
-
-if __name__ == "__main__":
-    main()
-
-            v_str = f"Vx:{v_cmd[0]:.2f} Vy:{v_cmd[1]:.2f} Vz:{v_cmd[2]:.2f} Wx: {v_cmd[3]:.2f} Wy:{v_cmd[4]:.2f} Wz:{v_cmd[5]:.2f}"
-            p_str = f"XYZ:[{p_end[0]:.2f},{p_end[1]:.2f},{p_end[2]:.2f}]m"
-            print(f"{p_str} | {v_str}  ", end="\r")
-
-            elapsed = time.time() - loop_start_time
-            if elapsed < DT:
-                time.sleep(DT - elapsed)
-
-    except KeyboardInterrupt:
-        print("\n\n[SHUTDOWN] Τερματισμός τηλεχειρισμού.")
-        GPIO.output(20, GPIO.LOW) # Απενεργοποίηση αντλίας
         GPIO.cleanup()
 
 if __name__ == "__main__":
