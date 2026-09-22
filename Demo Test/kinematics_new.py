@@ -61,6 +61,7 @@ class KinematicsEngine7DOF:
       z_axes.append(T[0:3, 2])
 
     p_end = positions[-1]
+    R_end = T[0:3, 0:3]  # Ο πίνακας περιστροφής του End-Effector
     J = np.zeros((6, self.dof))
 
     for i in range(self.dof):
@@ -70,6 +71,15 @@ class KinematicsEngine7DOF:
       J[3:6, i] = z_i  # Angular
 
     return p_end, J
+
+  def transform_v_to_base(self, v_cmd_tool, R_end):
+        """
+        Μετατρέπει τις ταχύτητες από το Tool Frame στο Base Frame 
+        ώστε ο χειρισμός να είναι απόλυτα διαισθητικός (Intuitive).
+        """
+        v_lin_base = R_end @ v_cmd_tool[0:3]
+        v_ang_base = R_end @ v_cmd_tool[3:6]
+        return np.concatenate([v_lin_base, v_ang_base])
 
   def solve_dls_ik(self, J, v_cmd, q_current):
     """Υπολογισμός ταχυτήτων αρθρώσεων με:
