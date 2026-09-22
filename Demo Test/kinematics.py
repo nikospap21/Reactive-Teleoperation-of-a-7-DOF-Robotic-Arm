@@ -34,7 +34,7 @@ class KinematicsEngine7DOF:
     self.singularity_threshold = singularity_threshold
 
     # Φυσική, εργονομική στάση ανάπαυσης (μακριά από joint limits)
-    self.q_rest = np.radians([0.0, 30.0, 0.0, 60.0, 0.0, 30.0, 0.0])
+    self.q_rest = np.radians([0.0, 30.0, 0.0, 40.0, 0.0, 30.0, 0.0])
 
   def _dh_matrix(self, a, alpha, d, theta):
     ct, st = math.cos(theta), math.sin(theta)
