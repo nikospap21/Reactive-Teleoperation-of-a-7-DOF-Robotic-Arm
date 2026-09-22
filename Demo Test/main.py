@@ -97,28 +97,22 @@ def main():
 
             # 2. Input Processing & Vacuum Control
             # Υπολογισμός FK, Rotation Matrix και Jacobian
-            p_end, R_end, J = kinematics.compute_fk_and_jacobian(q_current)
+            p_end, J = kinematics.compute_fk_and_jacobian(q_current)
 
             # Μετατροπές Ταχύτητας (Tool Frame -> Base Frame)
-            v_cmd_tool = controller.get_cartesian_velocity()
+            v_cmd = controller.get_cartesian_velocity()
             #v_cmd_base = kinematics.transform_v_to_base(v_cmd_tool, R_end)
-            v_cmd_base = np.array([
-                v_cmd_tool[0],  # Vx στο Base Frame
-                v_cmd_tool[1],  # Vy στο Base Frame
-                v_cmd_tool[2],  # Vz στο Base Frame (LT/RT -> Καθαρή κατακόρυφος!)
-                0.0, 0.0, 0.0   # Mηδενικές γωνιακές ταχύτητες
-            ])
-            
+           
             vacuum_state = controller.process_gripper_events()
 
             # 3. Kinematics Update & Security Checks
             p_end, J = kinematics.compute_fk_and_jacobian(q_current)
 
             # ΕΚΤΕΛΕΣΗ ΚΙΝΗΣΗΣ ΜΟΝΟ ΑΝ ΥΠΑΡΧΕΙ ΕΝΤΟΛΗ ΑΠΟ ΤΟ ΧΕΙΡΙΣΤΗΡΙΟ
-            if np.linalg.norm(v_cmd_base) > 0:
+            if np.linalg.norm(v_cmd) > 0:
                 try:
                     # α) Επίλυση DLS IK
-                    q_dot = kinematics.solve_dls_ik(J, v_cmd_base, q_current)
+                    q_dot = kinematics.solve_dls_ik(J, v_cmd, q_current)
                     if np.any(np.isnan(q_dot)) or np.any(np.isinf(q_dot)):
                         q_dot = np.zeros(DOF)
                 except Exception:
