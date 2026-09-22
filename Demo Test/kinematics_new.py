@@ -7,7 +7,7 @@ class KinematicsEngine7DOF:
   def __init__(
       self,
       lambda_max=0.04,
-      k_null=1.2,
+      k_null=0.2,
       max_joint_vel=0.8,
       singularity_threshold=0.015,
   ):
@@ -72,14 +72,14 @@ class KinematicsEngine7DOF:
 
     return p_end, J
 
-  def transform_v_to_base(self, v_cmd_tool, R_end):
-        """
-        Μετατρέπει τις ταχύτητες από το Tool Frame στο Base Frame 
-        ώστε ο χειρισμός να είναι απόλυτα διαισθητικός (Intuitive).
-        """
-        v_lin_base = R_end @ v_cmd_tool[0:3]
-        v_ang_base = R_end @ v_cmd_tool[3:6]
-        return np.concatenate([v_lin_base, v_ang_base])
+  # def transform_v_to_base(self, v_cmd_tool, R_end):
+  #       """
+  #       Μετατρέπει τις ταχύτητες από το Tool Frame στο Base Frame 
+  #       ώστε ο χειρισμός να είναι απόλυτα διαισθητικός (Intuitive).
+  #       """
+  #       v_lin_base = R_end @ v_cmd_tool[0:3]
+  #       v_ang_base = R_end @ v_cmd_tool[3:6]
+  #       return np.concatenate([v_lin_base, v_ang_base])
 
   def solve_dls_ik(self, J, v_cmd, q_current):
     """Υπολογισμός ταχυτήτων αρθρώσεων με:
