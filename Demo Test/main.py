@@ -100,7 +100,7 @@ def main():
             p_end, R_end, J = kinematics.compute_fk_and_jacobian(q_current)
 
             # Μετατροπές Ταχύτητας (Tool Frame -> Base Frame)
-            #v_cmd_tool = controller.get_cartesian_velocity()
+            v_cmd_tool = controller.get_cartesian_velocity()
             #v_cmd_base = kinematics.transform_v_to_base(v_cmd_tool, R_end)
             v_cmd_base = np.array([
                 v_cmd_tool[0],  # Vx στο Base Frame
