@@ -224,8 +224,8 @@ python3 main.py
 
 ## 👥 Contributors
 
-- **Student 1 Name** - ECE Dept., University of Patras
-- **Student 2 Name** - ECE Dept., University of Patras
+- **Nikolaos Papoutsopoulos - 1101000** - ECE Dept., University of Patras
+- **Marios Choustoulakhs - 1101141** - ECE Dept., University of Patras
 
 ---
 *Course: Robotic Systems I (2025–2026) | University of Patras*
