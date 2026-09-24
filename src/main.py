@@ -105,9 +105,6 @@ def main():
            
             vacuum_state = controller.process_gripper_events()
 
-            # 3. Kinematics Update & Security Checks
-            p_end, J = kinematics.compute_fk_and_jacobian(q_current)
-
             # ΕΚΤΕΛΕΣΗ ΚΙΝΗΣΗΣ ΜΟΝΟ ΑΝ ΥΠΑΡΧΕΙ ΕΝΤΟΛΗ ΑΠΟ ΤΟ ΧΕΙΡΙΣΤΗΡΙΟ
             if np.linalg.norm(v_cmd) > 0:
                 try:
