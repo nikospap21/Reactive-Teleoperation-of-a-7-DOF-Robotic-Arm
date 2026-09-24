@@ -1,9 +1,4 @@
 numpy>=1.22.0
-scipy>=1.8.0
-
 pygame>=2.1.0
-
 pymycobot>=3.1.0
-pyserial>=3.5
-
-pyyaml>=6.0
+RPi.GPIO>=0.7.1; platform_machine == "aarch64" or platform_machine == "armv7l"
