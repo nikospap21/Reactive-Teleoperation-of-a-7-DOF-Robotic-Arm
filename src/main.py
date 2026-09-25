@@ -145,7 +145,15 @@ def main():
 
             v_str = f"Vx:{v_cmd[0]:.2f} Vy:{v_cmd[1]:.2f} Vz:{v_cmd[2]:.2f} Wx:{v_cmd[3]:.2f} Wy:{v_cmd[4]:.2f} Wz:{v_cmd[5]:.2f}"
             p_str = f"XYZ:[{p_end[0]:.2f},{p_end[1]:.2f},{p_end[2]:.2f}]m"
-            print(f"{p_str} | {v_str}  ", end="\r")
+            print(f"{p_str} | {v_str}  ", end="\r", flush=True)
+
+            print(
+                f"Q (rad): [{q_current[0]:.2f}, {q_current[1]:.2f}, {q_current[2]:.2f},"
+                f" {q_current[3]:.2f}, {q_current[4]:.2f}, {q_current[5]:.2f},"
+                f" {q_current[6]:.2f}]",
+                end="\r",
+                flush=True,
+            )
 
             elapsed = time.time() - loop_start_time
             if elapsed < DT:
