@@ -78,7 +78,6 @@ class KinematicsEngine7DOF:
             z_axes.append(T[0:3, 2])
 
         p_end = positions[-1]
-        R_end = T[0:3, 0:3]
         J = np.zeros((6, self.dof))
 
         for i in range(self.dof):
