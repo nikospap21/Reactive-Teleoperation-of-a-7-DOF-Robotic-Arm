@@ -31,7 +31,7 @@ Q_MIN = np.array([-2.7925, -1.2217, -2.9670, -1.9722, -2.9670, -2.0071, -3.14159
 Q_MAX = np.array([ 2.7925,  2.0071,  2.9670,  1.3089,  2.9670,  2.0071,  3.14159])
 
 # Β) Όρια Γωνιακής Ταχύτητας Αρθρώσεων (σε rad/s)
-Q_DOT_MAX = np.array([1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5])
+Q_DOT_MAX = np.array([1.95,1.95,1.95,1.95,1.95,1.95,1.95])
 
 # Γ) Όρια Χώρου Εργασίας / Workspace Limits (σε μέτρα)
 WS_X_MIN, WS_X_MAX = -0.35, 0.35
@@ -104,7 +104,7 @@ def main():
 
             # Μετατροπές Ταχύτητας (Tool Frame -> Base Frame)
             v_cmd = controller.get_cartesian_velocity()
-            
+
             # ΕΚΤΕΛΕΣΗ ΚΙΝΗΣΗΣ ΜΟΝΟ ΑΝ ΥΠΑΡΧΕΙ ΕΝΤΟΛΗ ΑΠΟ ΤΟ ΧΕΙΡΙΣΤΗΡΙΟ
             if np.linalg.norm(v_cmd) > 0:
                 try:
@@ -135,7 +135,7 @@ def main():
                 if in_workspace:
                     q_current = q_next
                     if arm is not None:
-                        arm.send_radians(q_current.tolist(), 70)
+                        arm.send_radians(q_current.tolist(), 30)
                 else:
                     print("\n[WARNING] Reach Workspace Limit! Motion Blocked.  ", end="\r")
 
