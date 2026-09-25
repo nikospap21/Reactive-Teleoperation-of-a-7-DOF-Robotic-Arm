@@ -4,7 +4,7 @@ from pymycobot import MyArm # type:ignore
 import RPi.GPIO as GPIO # type:ignore
 
 from controller_teleop import PS2Controller
-from kinematics import KinematicsEngine7DOF
+from kinematics_new import KinematicsEngine7DOF
 
 # ==========================================
 # 1. ΕΣΩΤΕΡΙΚΗ ΣΥΝΔΕΣΗ (Raspberry Pi -> MyArm)
@@ -24,11 +24,11 @@ except Exception as e:
 # 2. ΠΑΡΑΜΕΤΡΟΙ ΡΟΜΠΟΤ & ΑΣΦΑΛΕΙΑΣ
 # ==========================================
 DOF = 7
-DT = 1.0 / 100.0
+DT = 1.0 / 30.0
 
 # Α) Γωνιακά Όρια Αρθρώσεων (σε rad)
-Q_MIN = np.radians([-160.0, -80.0, -175.0, -100.0, -165.0, -110.0, -165.0])
-Q_MAX = np.radians([ 160.0,  80.0,  175.0,   80.0,  165.0,  110.0,  165.0])
+Q_MIN = np.array([-2.7925, -1.2217, -2.9670, -1.9722, -2.9670, -2.0071, -3.14159])
+Q_MAX = np.array([ 2.7925,  2.0071,  2.9670,  1.3089,  2.9670,  2.0071,  3.14159])
 
 # Β) Όρια Γωνιακής Ταχύτητας Αρθρώσεων (σε rad/s)
 Q_DOT_MAX = np.array([1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5])
@@ -39,7 +39,10 @@ WS_Y_MIN, WS_Y_MAX = -0.35, 0.35
 WS_Z_MIN, WS_Z_MAX =  0.02, 0.45  # Z_min = 0.02m (προστασία από πρόσκρουση στο τραπέζι)
 
 # Στάση Εκκίνησης (Home)
-Q_HOME = np.array([0.0, 0.5, 0.0, 1.0, 0.0, 0.5, 0.0])
+Q_HOME = np.array([0.0, 0.5, 0.0, -0.5, 0.0, 0.3, 0.0])
+#Q_HOME = np.array([1.5, 0.5, 0.0, 0.0, 0.0, -1.5, 0.0])  #Right
+#Q_HOME = np.array([-1.5, 0.5, -0.5, -0.5, 0.0, -1.5, 0.0])  #Left
+
 
 # ==========================================
 # 3. ΚΥΡΙΟΣ ΚΥΚΛΟΣ ΕΛΕΓΧΟΥ (MAIN LOOP)
@@ -104,6 +107,9 @@ def main():
             #v_cmd_base = kinematics.transform_v_to_base(v_cmd_tool, R_end)
            
             vacuum_state = controller.process_gripper_events()
+
+            # 3. Kinematics Update & Security Checks
+            p_end, J = kinematics.compute_fk_and_jacobian(q_current)
 
             # ΕΚΤΕΛΕΣΗ ΚΙΝΗΣΗΣ ΜΟΝΟ ΑΝ ΥΠΑΡΧΕΙ ΕΝΤΟΛΗ ΑΠΟ ΤΟ ΧΕΙΡΙΣΤΗΡΙΟ
             if np.linalg.norm(v_cmd) > 0:
