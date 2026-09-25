@@ -6,10 +6,10 @@ class KinematicsEngine7DOF:
 
     def __init__(
         self,
-        lambda_max=0.02,
-        k_null=0.2,
+        lambda_max=0.04,
+        k_null=0.1,
         max_joint_vel=1.5,
-        singularity_threshold=0.01,
+        singularity_threshold=0.015,
     ):
         """Ακριβής Κινηματική Μηχανή βασισμένη στο Επίσημο URDF του MyArm 300 Pi."""
         self.dof = 7
