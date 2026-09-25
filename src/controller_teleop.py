@@ -59,6 +59,7 @@ class PS2Controller:
 
         # Ανάγνωση Αξόνων (με ασφάλεια για υπαρκτούς άξονες μόνο)
         num_axes = self.joystick.get_numaxes()
+        num_buttons = self.joystick.get_numbuttons()
         
         raw_lx = self.joystick.get_axis(0) if num_axes > 0 else 0.0
         raw_ly = self.joystick.get_axis(1) if num_axes > 1 else 0.0
@@ -66,7 +67,8 @@ class PS2Controller:
         raw_lz_down = self.joystick.get_axis(2) if num_axes > 2 else -1.0
         raw_rx = self.joystick.get_axis(4) if num_axes > 4 else 0.0
         raw_ry = self.joystick.get_axis(3) if num_axes > 3 else 0.0
-        #raw_rz = self.joystick.get_axis(3) if num_axes > 3 else 0.0
+        raw_rz_up = self.joystick.get_button(4) if num_buttons > 4 else 0.0
+        raw_rz_down = self.joystick.get_button(5) if num_buttons > 5 else 0.0
 
         # Εφαρμογή νεκρής ζώνης
         lx = self.apply_deadzone(raw_lx)
@@ -75,25 +77,26 @@ class PS2Controller:
         lz_down = self.normalize_trigger(raw_lz_down)
         rx = self.apply_deadzone(raw_rx)
         ry = self.apply_deadzone(raw_ry)
-        #rz = self.apply_deadzone(raw_rz)
-
+        rz_up = self.apply_deadzone(raw_rz_up)
+        rz_down = self.apply_deadzone(raw_rz_down)
 
         # Αντιστοίχιση σε Καρτεσιανές Ταχύτητες [vx, vy, vz, wx, wy, wz]
-        vx = -lx * self.scale_pos  # Πρόσω / Πίσω
-        vy =  ly * self.scale_pos  # Αριστερά / Δεξιά
-        vz= (lz_up -lz_down) * self.scale_pos_z  # Πάνω / Κάτω
+        vx = lx * self.scale_pos  # Πρόσω / Πίσω
+        vy = ly * self.scale_pos  # Αριστερά / Δεξιά
+        vz = (lz_up - lz_down) * self.scale_pos_z  # Πάνω / Κάτω
         
         
         wx = rx * self.scale_rot  # Yaw Περιστροφή
-        wy = ry * self.scale_rot  # Yaw Περιστροφή          
-        wz = 0.0 # rz * self.scale_rot  # Yaw Περιστροφή
+        wy = ry * self.scale_rot  # Yaw Περιστροφή         
+        wz = (rz_up - rz_down) * self.scale_rot # Yaw Περιστροφή
 
         # Noise Cutoffs
         if abs(vx) < 0.02: vx = 0.0
         if abs(vy) < 0.02: vy = 0.0
         if abs(vz) < 0.02: vz = 0.0
-        if abs(wx) < 0.04: wx = 0.0
-        if abs(wy) < 0.04: wy = 0.0
+        if abs(wx) < 0.02: wx = 0.0
+        if abs(wy) < 0.02: wy = 0.0
+        if abs(wz) < 0.02: wz = 0.0
 
         return np.array([vx, vy, vz, wx, wy, wz])
 
@@ -126,7 +129,7 @@ class PS2Controller:
         num_buttons = self.joystick.get_numbuttons()
 
         # Κουμπί Start (συνήθως index 7 ή 9) ή κουμπί X/Cross (index 2)
-        reset_button_indices = [7, 9, 2]
+        reset_button_indices = [2]
 
         for btn_idx in reset_button_indices:
             if num_buttons > btn_idx and self.joystick.get_button(btn_idx):
