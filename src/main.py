@@ -120,6 +120,8 @@ def main():
 
                 # γ) Υπολογισμός νέας στάσης
                 q_next = q_current + q_dot * DT
+
+                vacuum_state = controller.process_gripper_events()
                 
                 # δ) Joint Limits Clamping (Περιορισμός γωνιών αρθρώσεων)
                 q_next = np.clip(q_next, Q_MIN, Q_MAX)
