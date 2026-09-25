@@ -104,8 +104,7 @@ def main():
 
             # Μετατροπές Ταχύτητας (Tool Frame -> Base Frame)
             v_cmd = controller.get_cartesian_velocity()
-            #v_cmd_base = kinematics.transform_v_to_base(v_cmd_tool, R_end)
-
+            
             # ΕΚΤΕΛΕΣΗ ΚΙΝΗΣΗΣ ΜΟΝΟ ΑΝ ΥΠΑΡΧΕΙ ΕΝΤΟΛΗ ΑΠΟ ΤΟ ΧΕΙΡΙΣΤΗΡΙΟ
             if np.linalg.norm(v_cmd) > 0:
                 try:

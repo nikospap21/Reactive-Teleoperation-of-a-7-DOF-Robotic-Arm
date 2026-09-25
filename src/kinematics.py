@@ -6,10 +6,10 @@ class KinematicsEngine7DOF:
 
     def __init__(
         self,
-        lambda_max=0.04,
-        k_null=0.1,
+        lambda_max=0.02,
+        k_null=0.2,
         max_joint_vel=1.5,
-        singularity_threshold=0.02,
+        singularity_threshold=0.01,
     ):
         """Ακριβής Κινηματική Μηχανή βασισμένη στο Επίσημο URDF του MyArm 300 Pi."""
         self.dof = 7
@@ -33,7 +33,7 @@ class KinematicsEngine7DOF:
         # Rest pose εντός των πραγματικών ορίων του URDF
         self.q_rest = np.array([0.0, 0.5, 0.0, -0.5, 0.0, 0.3, 0.0])
 
-    def _rpy_to_mat(self, r, p, y):
+    def rpy_to_mat(self, r, p, y):
         """Μετατροπές Roll-Pitch-Yaw σε 3x3 Rotation Matrix."""
         cr, sr = math.cos(r), math.sin(r)
         cp, sp = math.cos(p), math.sin(p)
@@ -45,13 +45,13 @@ class KinematicsEngine7DOF:
 
         return R_z @ R_y @ R_x
 
-    def _get_joint_transform(self, joint_idx, q_val):
+    def get_joint_transform(self, joint_idx, q_val):
         """Υπολογίζει τον 4x4 πίνακα μετασχηματισμού για κάθε joint βάσει URDF."""
         x, y, z, r, p, yaw = self.joint_origins[joint_idx]
         
         # Origin transformation
         T_origin = np.eye(4)
-        T_origin[0:3, 0:3] = self._rpy_to_mat(r, p, yaw)
+        T_origin[0:3, 0:3] = self.rpy_to_mat(r, p, yaw)
         T_origin[0:3, 3] = [x, y, z]
 
         # Rotation γύρω από τον άξονα Z κατά q_val
@@ -72,7 +72,7 @@ class KinematicsEngine7DOF:
         z_axes = [np.array([0.0, 0.0, 1.0])]
 
         for i in range(self.dof):
-            T_i = self._get_joint_transform(i, q[i])
+            T_i = self.get_joint_transform(i, q[i])
             T = T @ T_i
             positions.append(T[0:3, 3])
             z_axes.append(T[0:3, 2])

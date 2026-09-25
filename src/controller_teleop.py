@@ -25,8 +25,8 @@ class PS2Controller:
 
         # Scalers Ταχυτήτων (m/s & rad/s)
         self.scale_pos = 0.1
-        self.scale_pos_z = 0.2
-        self.scale_rot = 0.3
+        self.scale_pos_z = 0.075
+        self.scale_rot = 0.1
 
         # Αρχικοποίηση GPIO για το Relay
         GPIO.setmode(GPIO.BCM)
@@ -37,7 +37,7 @@ class PS2Controller:
         GPIO.output(PIN_20, GPIO.LOW)
         GPIO.output(PIN_21, GPIO.HIGH) #Αρχική κατάσταση δεν ρουφάει
 
-    def _apply_deadzone(self, value):
+    def apply_deadzone(self, value):
         """Αυστηρή νεκρή ζώνη: Μηδενίζει οτιδήποτε μικρότερο από το deadzone."""
         if abs(value) < self.deadzone:
             return 0.0
@@ -47,7 +47,7 @@ class PS2Controller:
 
     def normalize_trigger(self, raw_value):
         norm_val = (raw_value + 1.0) / 2.0
-        return self._apply_deadzone(norm_val)
+        return self.apply_deadzone(norm_val)
 
     def get_cartesian_velocity(self):
         """
@@ -69,13 +69,13 @@ class PS2Controller:
         #raw_rz = self.joystick.get_axis(3) if num_axes > 3 else 0.0
 
         # Εφαρμογή νεκρής ζώνης
-        lx = self._apply_deadzone(raw_lx)
-        ly = self._apply_deadzone(raw_ly)
+        lx = self.apply_deadzone(raw_lx)
+        ly = self.apply_deadzone(raw_ly)
         lz_up = self.normalize_trigger(raw_lz_up)
         lz_down = self.normalize_trigger(raw_lz_down)
-        rx = self._apply_deadzone(raw_rx)
-        ry = self._apply_deadzone(raw_ry)
-        #rz = self._apply_deadzone(raw_rz)
+        rx = self.apply_deadzone(raw_rx)
+        ry = self.apply_deadzone(raw_ry)
+        #rz = self.apply_deadzone(raw_rz)
 
 
         # Αντιστοίχιση σε Καρτεσιανές Ταχύτητες [vx, vy, vz, wx, wy, wz]
