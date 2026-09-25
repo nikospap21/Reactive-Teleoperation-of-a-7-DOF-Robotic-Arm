@@ -20,6 +20,7 @@ class KinematicsEngine7DOF:
 
         # Ακριβή Transformations από το URDF (Origin XYZ, RPY για κάθε joint)
         # [x, y, z, roll, pitch, yaw]
+        EE_Offset = 0.15
         self.joint_origins = [
             [0.0, 0.0, 0.165, 0.0, 0.0, 0.0],           # Joint 1 -> Base
             [0.0, 0.0, 0.0, -1.5708, 0.0, 0.0],         # Joint 2 -> Joint 1
@@ -27,11 +28,11 @@ class KinematicsEngine7DOF:
             [0.0, 0.0, 0.0, -1.5708, 0.0, 3.14159],     # Joint 4 -> Joint 3
             [0.0, -0.126, 0.0, 1.5708, 0.0, 0.0],       # Joint 5 -> Joint 4
             [0.0, 0.0, 0.0, -1.5708, 0.0, 0.0],         # Joint 6 -> Joint 5
-            [0.0, -0.056, 0.0, 1.5708, 0.0, 0.0],       # Joint 7 -> Joint 6
+            [0.0, -0.056, EE_Offset, 1.5708, 0.0, 0.0], # Joint 7 -> Joint 6
         ]
 
         # Rest pose εντός των πραγματικών ορίων του URDF
-        self.q_rest = np.array([0.0, 0.5, 0.0, -0.5, 0.0, 0.3, 0.0])
+        self.q_rest = np.array([0.0, 0.5, 0.0, -0.5, 0.0, -0.3, 0.0])
 
     def rpy_to_mat(self, r, p, y):
         """Μετατροπές Roll-Pitch-Yaw σε 3x3 Rotation Matrix."""
