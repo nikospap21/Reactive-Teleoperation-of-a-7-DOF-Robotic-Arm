@@ -34,12 +34,13 @@ Q_MAX = np.array([ 2.7925,  2.0071,  2.9670,  1.3089,  2.9670,  2.0071,  3.14159
 Q_DOT_MAX = np.array([1.5,1.5,1.5,1.5,1.5,1.5,1.5])
 
 # Γ) Όρια Χώρου Εργασίας / Workspace Limits (σε μέτρα)
+EE_Offset = 0.15
 WS_X_MIN, WS_X_MAX = -0.35, 0.35
 WS_Y_MIN, WS_Y_MAX = -0.35, 0.35
-WS_Z_MIN, WS_Z_MAX =  0.02, 0.45  # Z_min = 0.02m (προστασία από πρόσκρουση στο τραπέζι)
+WS_Z_MIN, WS_Z_MAX =  0.02 + EE_Offset, 0.45 + EE_Offset# Z_min = 0.02m + EE_OFfset (προστασία από πρόσκρουση στο τραπέζι)
 
 # Στάση Εκκίνησης (Home)
-Q_HOME = np.array([0.0, 0.5, 0.0, -0.5, 0.0, 0.3, 0.0])
+Q_HOME = np.array([0.0, 0.5, 0.0, -0.5, 0.0, -0.3, 0.0])
 #Q_HOME = np.array([1.5, 0.5, 0.0, 0.0, 0.0, -1.5, 0.0])  #Right
 #Q_HOME = np.array([-1.5, 0.5, -0.5, -0.5, 0.0, -1.5, 0.0])  #Left
 
@@ -105,7 +106,7 @@ def main():
             # Μετατροπές Ταχύτητας (Tool Frame -> Base Frame)
             v_cmd = controller.get_cartesian_velocity()
 
-            vacuum_state = controller.process_gripper_events()
+            vaccum_state = controller.process_gripper_events()
 
             # ΕΚΤΕΛΕΣΗ ΚΙΝΗΣΗΣ ΜΟΝΟ ΑΝ ΥΠΑΡΧΕΙ ΕΝΤΟΛΗ ΑΠΟ ΤΟ ΧΕΙΡΙΣΤΗΡΙΟ
             if np.linalg.norm(v_cmd) > 0:
@@ -122,8 +123,6 @@ def main():
 
                 # γ) Υπολογισμός νέας στάσης
                 q_next = q_current + q_dot * DT
-
-                vacuum_state = controller.process_gripper_events()
                 
                 # δ) Joint Limits Clamping (Περιορισμός γωνιών αρθρώσεων)
                 q_next = np.clip(q_next, Q_MIN, Q_MAX)
@@ -145,15 +144,10 @@ def main():
 
             v_str = f"Vx:{v_cmd[0]:.2f} Vy:{v_cmd[1]:.2f} Vz:{v_cmd[2]:.2f} Wx:{v_cmd[3]:.2f} Wy:{v_cmd[4]:.2f} Wz:{v_cmd[5]:.2f}"
             p_str = f"XYZ:[{p_end[0]:.2f},{p_end[1]:.2f},{p_end[2]:.2f}]m"
-            print(f"{p_str} | {v_str}  ", end="\r", flush=True)
+            Q_str = f"Q (rad): [{q_current[0]:.2f}, {q_current[1]:.2f}, {q_current[2]:.2f},{q_current[3]:.2f}, {q_current[4]:.2f}, {q_current[5]:.2f}, {q_current[6]:.2f}]"
 
-            print(
-                f"Q (rad): [{q_current[0]:.2f}, {q_current[1]:.2f}, {q_current[2]:.2f},"
-                f" {q_current[3]:.2f}, {q_current[4]:.2f}, {q_current[5]:.2f},"
-                f" {q_current[6]:.2f}]",
-                end="\r",
-                flush=True,
-            )
+            print(f"{p_str} | {v_str}")
+            print(f"{Q_str}")    
 
             elapsed = time.time() - loop_start_time
             if elapsed < DT:
