@@ -8,8 +8,8 @@ class KinematicsEngine7DOF:
         self,
         lambda_max=0.04,
         k_null=0.1,
-        max_joint_vel=0.8,
-        singularity_threshold=0.015,
+        max_joint_vel=1.5,
+        singularity_threshold=0.02,
     ):
         """Ακριβής Κινηματική Μηχανή βασισμένη στο Επίσημο URDF του MyArm 300 Pi."""
         self.dof = 7
@@ -87,7 +87,7 @@ class KinematicsEngine7DOF:
             J[0:3, i] = np.cross(z_i, p_end - p_i)  # Linear Velocity (v)
             J[3:6, i] = z_i                        # Angular Velocity (w)
 
-        return p_end, R_end, J
+        return p_end, J
 
     def solve_dls_ik(self, J, v_cmd, q_current):
         """DLS IK Solver με Null-space projection."""
@@ -104,10 +104,11 @@ class KinematicsEngine7DOF:
         J_pinv = J.T @ np.linalg.inv(JJt + damp_mat)
 
         q_dot_task = J_pinv @ v_cmd
+        
+        q_null_target = self.k_null * (self.q_rest - q_current)
 
         I_7 = np.eye(self.dof)
         null_projector = I_7 - (J_pinv @ J)
-        q_null_target = self.k_null * (self.q_rest - q_current)
         q_dot_null = null_projector @ q_null_target
 
         q_dot = q_dot_task + q_dot_null
