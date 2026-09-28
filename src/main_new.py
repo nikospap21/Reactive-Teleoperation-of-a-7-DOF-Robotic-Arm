@@ -148,7 +148,7 @@ def main():
                 if in_workspace:
                     q_current = q_next
                     if arm is not None:
-                        arm.send_radians(q_current.tolist(), 30)
+                        arm.send_radians(q_current.tolist(), 70)
                 else:
                     print("\n[WARNING] Reach Workspace Limit! Motion Blocked.  ", end="\r")
 
