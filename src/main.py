@@ -26,31 +26,25 @@ except Exception as e:
 DOF = 7
 DT = 1.0 / 30.0
 
-# Α) Γωνιακά Όρια Αρθρώσεων (σε rad)
 Q_MIN = np.array([-2.7925, -1.2217, -2.9670, -1.9722, -2.9670, -2.0071, -3.14159])
 Q_MAX = np.array([ 2.7925,  2.0071,  2.9670,  1.3089,  2.9670,  2.0071,  3.14159])
 
-# Β) Όρια Γωνιακής Ταχύτητας Αρθρώσεων (σε rad/s)
-Q_DOT_MAX = np.array([1.5,1.5,1.5,1.5,1.5,1.5,1.5])
-
-# Γ) Όρια Χώρου Εργασίας / Workspace Limits (σε μέτρα)
 EE_Offset = 0.15
-WS_X_MIN, WS_X_MAX = -0.35, 0.35
-WS_Y_MIN, WS_Y_MAX = -0.35, 0.35
-WS_Z_MIN, WS_Z_MAX =  0.02 + EE_Offset, 0.45 + EE_Offset# Z_min = 0.02m + EE_OFfset (προστασία από πρόσκρουση στο τραπέζι)
+WS_X_MIN, WS_X_MAX = -0.38 - EE_Offset, 0.38 + EE_Offset
+WS_Y_MIN, WS_Y_MAX = -0.38 - EE_Offset, 0.38 + EE_Offset
+WS_Z_MIN, WS_Z_MAX =  -0.08, 0.38 + EE_Offset 
+# ola einai metrhmena sto ergasthrio. Kai to EE_Offset kai to Base - table 
 
-# Στάση Εκκίνησης (Home)
-Q_HOME = np.array([0.0, 0.5, 0.0, -0.5, 0.0, -0.3, 0.0])
+Q_HOME = np.array([0.0, 0.5, 0.0, 1.0, 0.0, 0.5, 0.0])
 #Q_HOME = np.array([1.5, 0.5, 0.0, 0.0, 0.0, -1.5, 0.0])  #Right
 #Q_HOME = np.array([-1.5, 0.5, -0.5, -0.5, 0.0, -1.5, 0.0])  #Left
-
 
 # ==========================================
 # 3. ΚΥΡΙΟΣ ΚΥΚΛΟΣ ΕΛΕΓΧΟΥ (MAIN LOOP)
 # ==========================================
 def main():
     try:
-        controller = PS2Controller(deadzone=0.1)
+        controller = PS2Controller(deadzone=0.0)
         kinematics = KinematicsEngine7DOF()
     except Exception as e:
         print(f"Σφάλμα Αρχικοποίησης: {e}")
@@ -80,7 +74,6 @@ def main():
         while True:
             loop_start_time = time.time()
 
-            # 1. Έλεγχος για RESET EVENT (Κουμπί Start/X)
             if controller.process_reset_event():
                 if arm is not None:
                     arm.power_on()
@@ -101,10 +94,15 @@ def main():
 
             # 2. Input Processing & Vacuum Control
             # Υπολογισμός FK, IK, Rotation Matrix και Jacobian
-            p_end, J = kinematics.compute_fk_and_jacobian(q_current)
+            p_end, R_end , J = kinematics.compute_fk_and_jacobian(q_current)
 
             # Μετατροπές Ταχύτητας (Tool Frame -> Base Frame)
-            v_cmd = controller.get_cartesian_velocity()
+            v_raw = controller.get_cartesian_velocity()
+
+            v_base_lin = R_end @ v_raw[0:3] # Γραμμικές συνιστώσες Twist
+            #w_tool = v_raw[3:6] # Γωνιακές συνιστώσεες Twist
+            v_base_ang = R_end @ v_raw[3:6] # Μετασχηματισμός από Tool Frame στο Base Frame
+            v_cmd = np.concatenate([v_base_lin, v_base_ang])
 
             vaccum_state = controller.process_gripper_events()
 
@@ -119,7 +117,15 @@ def main():
                     q_dot = np.zeros(DOF)
 
                 # β) Joint Velocity Clamping (Περιορισμός γωνιακής ταχύτητας)
-                q_dot = np.clip(q_dot, -Q_DOT_MAX, Q_DOT_MAX)
+                #q_dot = np.clip(q_dot, -Q_DOT_MAX, Q_DOT_MAX)
+
+                is_moving_xyz = np.linalg.norm(v_cmd[0:3]) > 0.02
+                
+                if abs(v_cmd[5]) > 0.04 and not is_moving_xyz:
+                    # Μηδενίζουμε όλες τις αρθρώσεις 1 έως 6
+                    q_dot[0:6] = 0.0
+                    # Δίνουμε την κίνηση ΑΠΟΚΛΕΙΣΤΙΚΑ στην q7
+                    q_dot[6] = v_cmd[5]
 
                 # γ) Υπολογισμός νέας στάσης
                 q_next = q_current + q_dot * DT
@@ -128,7 +134,7 @@ def main():
                 q_next = np.clip(q_next, Q_MIN, Q_MAX)
 
                 # ε) Έλεγχος Workspace Limits μέσω Forward Kinematics
-                p_next, _ = kinematics.compute_fk_and_jacobian(q_next)
+                p_next, _, _ = kinematics.compute_fk_and_jacobian(q_next)
                 in_workspace = (
                     WS_X_MIN <= p_next[0] <= WS_X_MAX and
                     WS_Y_MIN <= p_next[1] <= WS_Y_MAX and
@@ -146,8 +152,7 @@ def main():
             p_str = f"XYZ:[{p_end[0]:.2f},{p_end[1]:.2f},{p_end[2]:.2f}]m"
             Q_str = f"Q (rad): [{q_current[0]:.2f}, {q_current[1]:.2f}, {q_current[2]:.2f},{q_current[3]:.2f}, {q_current[4]:.2f}, {q_current[5]:.2f}, {q_current[6]:.2f}]"
 
-            print(f"{p_str} | {v_str}")
-            print(f"{Q_str}")    
+            print(f"{p_str} | {Q_str}", end ="\r")
 
             elapsed = time.time() - loop_start_time
             if elapsed < DT:
