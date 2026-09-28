@@ -128,8 +128,13 @@ def main():
                 # β) Joint Velocity Clamping (Περιορισμός γωνιακής ταχύτητας)
                 q_dot = np.clip(q_dot, -Q_DOT_MAX, Q_DOT_MAX)
 
-                if abs(w_tool[2]) > 0.05:
-                    q_dot[6] = w_tool[2]  # Απευθείας περιστροφή της 7ης άρθρωσης
+                is_moving_xyz = np.linalg.norm(v_raw[0:3]) > 0.02
+                
+                if abs(w_tool[2]) > 0.05 and not is_moving_xyz:
+                    # Μηδενίζουμε όλες τις αρθρώσεις 1 έως 6
+                    q_dot[0:6] = 0.0
+                    # Δίνουμε την κίνηση ΑΠΟΚΛΕΙΣΤΙΚΑ στην q7
+                    q_dot[6] = w_tool[2]
 
                 # γ) Υπολογισμός νέας στάσης
                 q_next = q_current + q_dot * DT
