@@ -101,10 +101,17 @@ def main():
 
             # 2. Input Processing & Vacuum Control
             # Υπολογισμός FK, IK, Rotation Matrix και Jacobian
-            p_end, J = kinematics.compute_fk_and_jacobian(q_current)
+            p_end, R_end , J = kinematics.compute_fk_and_jacobian(q_current)
 
             # Μετατροπές Ταχύτητας (Tool Frame -> Base Frame)
-            v_cmd = controller.get_cartesian_velocity()
+            v_raw = controller.get_cartesian_velocity()
+
+            v_base_lin = v_raw[0:3] # Γραμμικές συνιστώσες Twist
+            w_tool = v_raw[3:6] # Γωνιακές συνιστώσεες Twist
+
+            v_base_ang = R_end @ w_tool # Μετασχηματισμός από Tool Frame στο Base Frame
+
+            v_cmd = np.concatenate([v_base_lin, v_base_ang])
 
             vaccum_state = controller.process_gripper_events()
 
@@ -120,6 +127,9 @@ def main():
 
                 # β) Joint Velocity Clamping (Περιορισμός γωνιακής ταχύτητας)
                 q_dot = np.clip(q_dot, -Q_DOT_MAX, Q_DOT_MAX)
+
+                if abs(w_tool[2]) > 0.05:
+                    q_dot[6] = w_tool[2]  # Απευθείας περιστροφή της 7ης άρθρωσης
 
                 # γ) Υπολογισμός νέας στάσης
                 q_next = q_current + q_dot * DT
