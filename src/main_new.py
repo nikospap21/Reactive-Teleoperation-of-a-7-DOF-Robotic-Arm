@@ -35,9 +35,9 @@ Q_DOT_MAX = np.array([1.5,1.5,1.5,1.5,1.5,1.5,1.5])
 
 # Γ) Όρια Χώρου Εργασίας / Workspace Limits (σε μέτρα)
 EE_Offset = 0.15
-WS_X_MIN, WS_X_MAX = -0.35, 0.35
-WS_Y_MIN, WS_Y_MAX = -0.35, 0.35
-WS_Z_MIN, WS_Z_MAX =  0.02 + EE_Offset, 0.45 + EE_Offset# Z_min = 0.02m + EE_OFfset (προστασία από πρόσκρουση στο τραπέζι)
+WS_X_MIN, WS_X_MAX = -0.38 - EE_Offset, 0.38 + EE_Offset
+WS_Y_MIN, WS_Y_MAX = -0.38 - EE_Offset, 0.38 + EE_Offset
+WS_Z_MIN, WS_Z_MAX =  0.02 + EE_Offset, 0.45 + EE_Offset # Z_min = 0.02m + EE_OFfset (προστασία από πρόσκρουση στο τραπέζι)
 
 # Στάση Εκκίνησης (Home)
 Q_HOME = np.array([0.0, 0.5, 0.0, -0.5, 0.0, -0.3, 0.0])
