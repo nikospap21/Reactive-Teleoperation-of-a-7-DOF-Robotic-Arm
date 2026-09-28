@@ -7,7 +7,7 @@ PIN_20 = 20
 PIN_21 = 21
 
 class PS2Controller:
-    def __init__(self, device_index=0, deadzone = 0.1):
+    def __init__(self, device_index=0, deadzone = 0.0):
         """
         Αρχικοποίηση PS2 Controller με αυστηρό φιλτράρισμα drift.
         """
@@ -24,9 +24,9 @@ class PS2Controller:
         self.vacuum_state = False
 
         # Scalers Ταχυτήτων (m/s & rad/s)
-        self.scale_pos = 0.1
-        self.scale_pos_z = 0.075
-        self.scale_rot = 0.1
+        self.scale_pos = 0.05
+        self.scale_pos_z = 0.05
+        self.scale_rot = 0.05
 
         # Αρχικοποίηση GPIO για το Relay
         GPIO.setmode(GPIO.BCM)
@@ -81,8 +81,8 @@ class PS2Controller:
         rz_down = self.apply_deadzone(raw_rz_down)
 
         # Αντιστοίχιση σε Καρτεσιανές Ταχύτητες [vx, vy, vz, wx, wy, wz]
-        vx = lx * self.scale_pos  # Πρόσω / Πίσω
-        vy = ly * self.scale_pos  # Αριστερά / Δεξιά
+        vx = -lx * self.scale_pos  # Πρόσω / Πίσω
+        vy = -ly * self.scale_pos  # Αριστερά / Δεξιά
         vz = (lz_up - lz_down) * self.scale_pos_z  # Πάνω / Κάτω
         
         
