@@ -4,122 +4,118 @@ import numpy as np
 
 class KinematicsEngine7DOF:
 
-  def __init__(
-      self,
-      lambda_max=0.04,
-      k_null=0.2,
-      max_joint_vel=0.8,
-      singularity_threshold=0.015,
-  ):
-    """Κινηματική Μηχανή για Elephant Robotics MyArm 300 Pi (7-DOF).
+    def __init__(
+        self,
+        lambda_max=0.04,
+        k_null=0.1,
+        max_joint_vel=1.5,
+        singularity_threshold=0.015,
+    ):
+        """Ακριβής Κινηματική Μηχανή βασισμένη στο Επίσημο URDF του MyArm 300 Pi."""
+        self.dof = 7
+        self.lambda_max = lambda_max
+        self.k_null = k_null
+        self.max_joint_vel = max_joint_vel
+        self.singularity_threshold = singularity_threshold
 
-    Υποστηρίζει Dynamic Damped Least Squares (DLS), Redundancy Resolution μέσω
-    Null-Space, και Scaling ταχυτήτων για ομαλή κίνηση (Smoothness).
-    """
-    # Standard DH Parameters [a, alpha, d, theta_offset]
-    self.dh_params = [
-        [0.0, 0.0, 0.1405, 0.0],  # Joint 1
-        [0.0, -math.pi / 2, 0.0, 0.0],  # Joint 2
-        [0.0, math.pi / 2, 0.1200, 0.0],  # Joint 3
-        [0.0, -math.pi / 2, 0.0, 0.0],  # Joint 4
-        [0.0, math.pi / 2, 0.1200, 0.0],  # Joint 5
-        [0.0, -math.pi / 2, 0.0, 0.0],  # Joint 6
-        [0.0, math.pi / 2, 0.0600, 0.0],  # Joint 7 (End-Effector)
-    ]
+        # Ακριβή Transformations από το URDF (Origin XYZ, RPY για κάθε joint)
+        # [x, y, z, roll, pitch, yaw]
+        EE_Offset = 0.15
+        self.joint_origins = [
+            [0.0, 0.0, 0.165, 0.0, 0.0, 0.0],           # Joint 1 -> Base
+            [0.0, 0.0, 0.0, -1.5708, 0.0, 0.0],         # Joint 2 -> Joint 1
+            [0.0, -0.110, 0.0, 1.5708, 0.0, 0.0],       # Joint 3 -> Joint 2
+            [0.0, 0.0, 0.0, -1.5708, 0.0, 3.14159],     # Joint 4 -> Joint 3
+            [0.0, -0.126, 0.0, 1.5708, 0.0, 0.0],       # Joint 5 -> Joint 4
+            [0.0, 0.0, 0.0, -1.5708, 0.0, 0.0],         # Joint 6 -> Joint 5
+            [0.0, -0.056, EE_Offset, 1.5708, 0.0, 0.0], # Joint 7 -> Joint 6
+        ]
 
-    self.dof = 7
-    self.lambda_max = lambda_max
-    self.k_null = k_null
-    self.max_joint_vel = max_joint_vel  # rad/s max ταχύτητα για εξομάλυνση
-    self.singularity_threshold = singularity_threshold
+        # Rest pose εντός των πραγματικών ορίων του URDF
+        self.q_rest = np.array([0.0, 0.5, 0.0, 1.0, 0.0, 0.5, 0.0])
 
-    # Φυσική, εργονομική στάση ανάπαυσης (μακριά από joint limits)
-    self.q_rest = np.radians([0.0, 30.0, 0.0, 60.0, 0.0, 30.0, 0.0])
+    def rpy_to_mat(self, r, p, y):
+        """Μετατροπές Roll-Pitch-Yaw σε 3x3 Rotation Matrix."""
+        cr, sr = math.cos(r), math.sin(r)
+        cp, sp = math.cos(p), math.sin(p)
+        cy, sy = math.cos(y), math.sin(y)
 
-  def _dh_matrix(self, a, alpha, d, theta):
-    ct, st = math.cos(theta), math.sin(theta)
-    ca, sa = math.cos(alpha), math.sin(alpha)
-    return np.array([
-        [ct, -st * ca, st * sa, a * ct],
-        [st, ct * ca, -ct * sa, a * st],
-        [0.0, sa, ca, d],
-        [0.0, 0.0, 0.0, 1.0],
-    ])
+        R_x = np.array([[1, 0, 0], [0, cr, -sr], [0, sr, cr]])
+        R_y = np.array([[cp, 0, sp], [0, 1, 0], [-sp, 0, cp]])
+        R_z = np.array([[cy, -sy, 0], [sy, cy, 0], [0, 0, 1]])
 
-  def compute_fk_and_jacobian(self, q):
-    """Υπολογισμός Forward Kinematics (θέση άκρου) και Γεωμετρικού Ιακωβιανού (6x7)."""
-    T = np.eye(4)
-    positions = [np.zeros(3)]
-    z_axes = [np.array([0.0, 0.0, 1.0])]
+        return R_z @ R_y @ R_x
 
-    for i in range(self.dof):
-      a, alpha, d, theta_offset = self.dh_params[i]
-      theta = q[i] + theta_offset
-      T_i = self._dh_matrix(a, alpha, d, theta)
-      T = T @ T_i
-      positions.append(T[0:3, 3])
-      z_axes.append(T[0:3, 2])
+    def get_joint_transform(self, joint_idx, q_val):
+        """Υπολογίζει τον 4x4 πίνακα μετασχηματισμού για κάθε joint βάσει URDF."""
+        x, y, z, r, p, yaw = self.joint_origins[joint_idx]
+        
+        # Origin transformation
+        T_origin = np.eye(4)
+        T_origin[0:3, 0:3] = self.rpy_to_mat(r, p, yaw)
+        T_origin[0:3, 3] = [x, y, z]
 
-    p_end = positions[-1]
-    R_end = T[0:3, 0:3]  # Ο πίνακας περιστροφής του End-Effector
-    J = np.zeros((6, self.dof))
+        # Rotation γύρω από τον άξονα Z κατά q_val
+        cq, sq = math.cos(q_val), math.sin(q_val)
+        T_rot = np.array([
+            [cq, -sq, 0.0, 0.0],
+            [sq,  cq, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0]
+        ])
 
-    for i in range(self.dof):
-      z_i = z_axes[i]
-      p_i = positions[i]
-      J[0:3, i] = np.cross(z_i, p_end - p_i)  # Linear
-      J[3:6, i] = z_i  # Angular
+        return T_origin @ T_rot
 
-    return p_end, J
+    def compute_fk_and_jacobian(self, q):
+        """Υπολογισμός FK και 6x7 Geometric Jacobian απευθείας από τη URDF δομή."""
+        T = np.eye(4)
+        positions = [np.zeros(3)]
+        z_axes = [np.array([0.0, 0.0, 1.0])]
 
-  # def transform_v_to_base(self, v_cmd_tool, R_end):
-  #       """
-  #       Μετατρέπει τις ταχύτητες από το Tool Frame στο Base Frame 
-  #       ώστε ο χειρισμός να είναι απόλυτα διαισθητικός (Intuitive).
-  #       """
-  #       v_lin_base = R_end @ v_cmd_tool[0:3]
-  #       v_ang_base = R_end @ v_cmd_tool[3:6]
-  #       return np.concatenate([v_lin_base, v_ang_base])
+        for i in range(self.dof):
+            T_i = self.get_joint_transform(i, q[i])
+            T = T @ T_i
+            positions.append(T[0:3, 3])
+            z_axes.append(T[0:3, 2])
 
-  def solve_dls_ik(self, J, v_cmd, q_current):
-    """Υπολογισμός ταχυτήτων αρθρώσεων με:
+        p_end = positions[-1]
+        R_end = T[0:3,0:3]
+        J = np.zeros((6, self.dof))
 
-    1. Dynamic Damping DLS (αποφυγή εκρήξεων σε ιδιομορφίες) 2. Null-Space
-    Optimization (άνετη στάση, αποφυγή τρανταγμάτων) 3. Joint Velocity
-    Normalization (smooth motion)
-    """
-    # 1. Υπολογισμός Manipulability Measure: w = sqrt(det(J * J^T))
-    JJt = J @ J.T
-    det_JJt = np.linalg.det(JJt)
-    w = math.sqrt(max(0.0, det_JJt))
+        for i in range(self.dof):
+            z_i = z_axes[i]
+            p_i = positions[i]
+            J[0:3, i] = np.cross(z_i, p_end - p_i)  # Linear Velocity (v)
+            J[3:6, i] = z_i                        # Angular Velocity (w)
 
-    # 2. Προσαρμοζόμενος Συντελεστής Απόσβεσης (Dynamic Damping)
-    # Όσο πλησιάζουμε σε ιδιομορφία (w -> 0), τόσο αυξάνεται το damping για να μην τιναχτεί ο βραχίονας
-    if w < self.singularity_threshold:
-      damping = self.lambda_max * (1.0 - (w / self.singularity_threshold) ** 2)
-    else:
-      damping = 0.0
+        return p_end, R_end, J
 
-    # DLS Inverse: J_pinv = J^T * (J * J^T + lambda^2 * I)^-1
-    damp_mat = (damping**2) * np.eye(6)
-    J_pinv = J.T @ np.linalg.inv(JJt + damp_mat)
+    def solve_dls_ik(self, J, v_cmd, q_current):
+        """DLS IK Solver με Null-space projection."""
+        JJt = J @ J.T
+        det_JJt = np.linalg.det(JJt)
+        w = math.sqrt(max(0.0, det_JJt))
 
-    # 3. Task Velocity
-    q_dot_task = J_pinv @ v_cmd
+        if w < self.singularity_threshold:
+            damping = self.lambda_max * (1.0 - (w / self.singularity_threshold) ** 2)
+        else:
+            damping = 0.0
 
-    # 4. Null-Space Redundancy Resolution: (I - J_pinv * J) * q_null
-    # Σπρώχνει τις αρθρώσεις ομαλά προς την άνετη στάση χωρίς να επηρεάζει το άκρο
-    I_7 = np.eye(self.dof)
-    null_projector = I_7 - (J_pinv @ J)
-    q_null_target = self.k_null * (self.q_rest - q_current)
-    q_dot_null = null_projector @ q_null_target
+        damp_mat = (damping**2) * np.eye(6)
+        J_pinv = J.T @ np.linalg.inv(JJt + damp_mat)
 
-    # Συνολική ταχύτητα
-    q_dot = q_dot_task + q_dot_null
+        q_dot_task = J_pinv @ v_cmd
+        
+        q_null_target = self.k_null * (self.q_rest - q_current)
 
-    # 5. Smooth Speed Limiting (Αποφυγή τραντάγματος - scaling διανύσματος)
-    max_val = np.max(np.abs(q_dot))
-    if max_val > self.max_joint_vel:
-      q_dot = q_dot * (self.max_joint_vel / max_val)
+        I_7 = np.eye(self.dof)
+        null_projector = I_7 - (J_pinv @ J)
+        q_dot_null = null_projector @ q_null_target
 
-    return q_dot
+        q_dot = q_dot_task + q_dot_null
+
+        max_val = np.max(np.abs(q_dot))
+        if max_val > self.max_joint_vel:
+            q_dot = q_dot * (self.max_joint_vel / max_val)
+
+        return q_dot
