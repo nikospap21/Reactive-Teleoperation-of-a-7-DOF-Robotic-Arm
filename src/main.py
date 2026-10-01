@@ -4,8 +4,11 @@ from pymycobot import MyArm # type:ignore
 import RPi.GPIO as GPIO # type:ignore
 
 from controller_teleop import PS2Controller
-from test import KinematicsEngine7DOF
+from kinematics_new import KinematicsEngine7DOF
 
+# ==========================================
+# 1. ΕΣΩΤΕΡΙΚΗ ΣΥΝΔΕΣΗ (Raspberry Pi -> MyArm)
+# ==========================================
 SERIAL_PORT = "/dev/ttyAMA0"
 BAUDRATE = 115200
 
@@ -17,57 +20,67 @@ except Exception as e:
     print(f"[HARDWARE ERROR] Αποτυχία σύνδεσης: {e}")
     arm = None
 
+# ==========================================
+# 2. ΠΑΡΑΜΕΤΡΟΙ ΡΟΜΠΟΤ & ΑΣΦΑΛΕΙΑΣ
+# ==========================================
 DOF = 7
 DT = 1.0 / 30.0
 
-EE_OFFSET = 0.15
-kinematics = KinematicsEngine7DOF(ee_offset=EE_OFFSET)
+Q_MIN = np.array([-2.7925, -1.2217, -2.9670, -1.9722, -2.9670, -2.0071, -3.14159])
+Q_MAX = np.array([ 2.7925,  2.0071,  2.9670,  1.3089,  2.9670,  2.0071,  3.14159])
 
-Q_MIN = kinematics.q_min
-Q_MAX = kinematics.q_max
+EE_Offset = 0.15
+WS_X_MIN, WS_X_MAX = -0.38 - EE_Offset, 0.38 + EE_Offset
+WS_Y_MIN, WS_Y_MAX = -0.38 - EE_Offset, 0.38 + EE_Offset
+WS_Z_MIN, WS_Z_MAX =  -0.08, 0.38 + EE_Offset 
+# ola einai metrhmena sto ergasthrio. Kai to EE_Offset kai to Base - table 
 
-# Όρια Χώρου Εργασίας (ενσωματώνουν το ύψος της βεντούζας)
-WS_X_MIN, WS_X_MAX = -0.35, 0.35
-WS_Y_MIN, WS_Y_MAX = -0.35, 0.35
-WS_Z_MIN, WS_Z_MAX =  0.02, 0.45   # 2cm ασφαλές όριο πάνω από την επιφάνεια του τραπεζιού
-
-# Ασφαλής Στάση Έναρξης (βεντούζα στραμμένη προς τα κάτω)
 Q_HOME = np.array([0.0, 0.5, 0.0, 1.0, 0.0, 0.5, 0.0])
+#Q_HOME = np.array([1.5, 0.5, 0.0, 0.0, 0.0, -1.5, 0.0])  #Right
+#Q_HOME = np.array([-1.5, 0.5, -0.5, -0.5, 0.0, -1.5, 0.0])  #Left
 
+# ==========================================
+# 3. ΚΥΡΙΟΣ ΚΥΚΛΟΣ ΕΛΕΓΧΟΥ (MAIN LOOP)
+# ==========================================
 def main():
     try:
-        controller = PS2Controller(deadzone=0.08)
+        controller = PS2Controller(deadzone=0.0)
+        kinematics = KinematicsEngine7DOF()
     except Exception as e:
-        print(f"Σφάλμα Αρχικοποίησης Χειριστηρίου: {e}")
+        print(f"Σφάλμα Αρχικοποίησης: {e}")
         return
 
+    # AUTO-RESET ΣΤΗΝ ΑΣΦΑΛΗ ΑΡΧΙΚΗ ΘΕΣΗ
     q_current = np.copy(Q_HOME)
     if arm is not None:
-        print("\n[AUTO-RESET] Μετάβαση σε Αρχική Στάση...")
+        print("\n[AUTO-RESET] Μετάβαση σε Ασφαλή Αρχική Στάση...")
         try:
             arm.power_on()
             time.sleep(0.5)
             arm.send_radians(Q_HOME.tolist(), 30)
             time.sleep(2.5)
+            
             angles = arm.get_radians()
             if angles and len(angles) == DOF:
                 q_current = np.array(angles)
-            print("[AUTO-RESET COMPLETE] Ο βραχίονας είναι έτοιμος!\n")
+            print("[AUTO-RESET COMPLETE] Το ρομπότ είναι έτοιμο και σταθερό!\n")
         except Exception as e:
             print(f"[RESET ERROR] {e}")
 
     print("--- ΤΗΛΕΧΕΙΡΙΣΜΟΣ ΕΝΕΡΓΟΣ (30 Hz) ---")
+    print(" - Αφήστε τους μοχλούς: Το ρομπότ ΠΡΕΠΕΙ να μένει ΑΠΟΛΥΤΑ ΑΚΙΝΗΤΟ.\n")
 
     try:
         while True:
-            t_start = time.time()
+            loop_start_time = time.time()
 
-            # 1. Reset Event
             if controller.process_reset_event():
                 if arm is not None:
                     arm.power_on()
+                    time.sleep(0.2)
                     arm.send_radians(Q_HOME.tolist(), 30)
-                    time.sleep(2.0)
+                    time.sleep(2.5)
+                    
                     angles = arm.get_radians()
                     if angles and len(angles) == DOF:
                         q_current = np.array(angles)
@@ -75,70 +88,80 @@ def main():
                         q_current = np.copy(Q_HOME)
                 else:
                     q_current = np.copy(Q_HOME)
+                
+                print("[RESET COMPLETE] Το ρομπότ επανήλθε στη μηδενική θέση.\n")
                 continue
 
-            # 2. Ανάγνωση Χειριστηρίου & Βεντούζας
+            # 2. Input Processing & Vacuum Control
+            # Υπολογισμός FK, IK, Rotation Matrix και Jacobian
+            p_end, R_end , J = kinematics.compute_fk_and_jacobian(q_current)
+
+            # Μετατροπές Ταχύτητας (Tool Frame -> Base Frame)
             v_raw = controller.get_cartesian_velocity()
-            controller.process_gripper_events()
 
-            # Οι γραμμικές ταχύτητες ορίζονται απευθείας στο Base Frame για σταθερό έλεγχο
-            # [vx, vy, vz, wx, wy, wz]
-            v_cmd = np.copy(v_raw)
+            v_base_lin = R_end @ v_raw[0:3] # Γραμμικές συνιστώσες Twist
+            #w_tool = v_raw[3:6] # Γωνιακές συνιστώσεες Twist
+            v_base_ang = R_end @ v_raw[3:6] # Μετασχηματισμός από Tool Frame στο Base Frame
+            v_cmd = np.concatenate([v_base_lin, v_base_ang])
 
-            # 3. Forward Kinematics & Έλεγχος Workspace
-            p_end, R_end, J = kinematics.compute_fk_and_jacobian(q_current)
+            vaccum_state = controller.process_gripper_events()
 
-            v_safe = np.copy(v_cmd)
-            if (p_end[0] <= WS_X_MIN and v_safe[0] < 0) or (p_end[0] >= WS_X_MAX and v_safe[0] > 0):
-                v_safe[0] = 0.0
-            if (p_end[1] <= WS_Y_MIN and v_safe[1] < 0) or (p_end[1] >= WS_Y_MAX and v_safe[1] > 0):
-                v_safe[1] = 0.0
-            if (p_end[2] <= WS_Z_MIN and v_safe[2] < 0) or (p_end[2] >= WS_Z_MAX and v_safe[2] > 0):
-                v_safe[2] = 0.0
-
-            # 4. Επίλυση Κινηματικής
-            if np.linalg.norm(v_safe) > 0.005:
-                # Decoupling: Καθαρό Yaw στο Joint 7 αν δεν υπάρχει μεταφορική κίνηση
-                is_translating = np.linalg.norm(v_safe[0:3]) > 0.01
-                if abs(v_safe[5]) > 0.02 and not is_translating:
-                    q_dot = np.zeros(DOF)
-                    q_dot[6] = v_safe[5]
-                else:
-                    q_dot = kinematics.solve_dls_ik(J, v_safe, q_current, lock_pitch_roll=True)
-
-                if np.any(np.isnan(q_dot)) or np.any(np.isinf(q_dot)):
+            # ΕΚΤΕΛΕΣΗ ΚΙΝΗΣΗΣ ΜΟΝΟ ΑΝ ΥΠΑΡΧΕΙ ΕΝΤΟΛΗ ΑΠΟ ΤΟ ΧΕΙΡΙΣΤΗΡΙΟ
+            if np.linalg.norm(v_cmd) > 0:
+                try:
+                    # α) Επίλυση DLS IK
+                    q_dot = kinematics.solve_dls_ik(J, v_cmd, q_current)
+                    if np.any(np.isnan(q_dot)) or np.any(np.isinf(q_dot)):
+                        q_dot = np.zeros(DOF)
+                except Exception:
                     q_dot = np.zeros(DOF)
 
-                # Ενημέρωση και Clamping
+                # β) Joint Velocity Clamping (Περιορισμός γωνιακής ταχύτητας)
+                #q_dot = np.clip(q_dot, -Q_DOT_MAX, Q_DOT_MAX)
+
+                is_moving_xyz = np.linalg.norm(v_cmd[0:3]) > 0.02
+                
+                if abs(v_cmd[5]) > 0.04 and not is_moving_xyz:
+                    # Μηδενίζουμε όλες τις αρθρώσεις 1 έως 6
+                    q_dot[0:6] = 0.0
+                    # Δίνουμε την κίνηση ΑΠΟΚΛΕΙΣΤΙΚΑ στην q7
+                    q_dot[6] = v_cmd[5]
+
+                # γ) Υπολογισμός νέας στάσης
                 q_next = q_current + q_dot * DT
+                
+                # δ) Joint Limits Clamping (Περιορισμός γωνιών αρθρώσεων)
                 q_next = np.clip(q_next, Q_MIN, Q_MAX)
 
-                # Έλεγχος ότι η επόμενη στάση παραμένει εντός ορίων
+                # ε) Έλεγχος Workspace Limits μέσω Forward Kinematics
                 p_next, _, _ = kinematics.compute_fk_and_jacobian(q_next)
-                in_ws = (WS_X_MIN <= p_next[0] <= WS_X_MAX and
-                         WS_Y_MIN <= p_next[1] <= WS_Y_MAX and
-                         WS_Z_MIN <= p_next[2] <= WS_Z_MAX)
+                in_workspace = (
+                    WS_X_MIN <= p_next[0] <= WS_X_MAX and
+                    WS_Y_MIN <= p_next[1] <= WS_Y_MAX and
+                    WS_Z_MIN <= p_next[2] <= WS_Z_MAX
+                )
 
-                if in_ws:
+                if in_workspace:
                     q_current = q_next
                     if arm is not None:
-                        arm.send_radians(q_current.tolist(), 40)
+                        arm.send_radians(q_current.tolist(), 30)
                 else:
-                    print("\n[WARNING] Επαφή με όριο χώρου εργασίας! Κίνηση αποκλείστηκε.", end="\r")
+                    print("\n[WARNING] Reach Workspace Limit! Motion Blocked.  ", end="\r")
 
-            # Τηλεμετρία
-            p_str = f"XYZ: [{p_end[0]:+.3f}, {p_end[1]:+.3f}, {p_end[2]:+.3f}]m"
-            v_str = f"Vx:{v_safe[0]:+.2f} Vy:{v_safe[1]:+.2f} Vz:{v_safe[2]:+.2f} Wz:{v_safe[5]:+.2f}"
-            print(f"{p_str} | {v_str}  ", end="\r")
+            v_str = f"Vx:{v_cmd[0]:.2f} Vy:{v_cmd[1]:.2f} Vz:{v_cmd[2]:.2f} Wx:{v_cmd[3]:.2f} Wy:{v_cmd[4]:.2f} Wz:{v_cmd[5]:.2f}"
+            p_str = f"XYZ:[{p_end[0]:.2f},{p_end[1]:.2f},{p_end[2]:.2f}]m"
+            Q_str = f"Q (rad): [{q_current[0]:.2f}, {q_current[1]:.2f}, {q_current[2]:.2f},{q_current[3]:.2f}, {q_current[4]:.2f}, {q_current[5]:.2f}, {q_current[6]:.2f}]"
 
-            elapsed = time.time() - t_start
+            print(f"{p_str} | {Q_str}", end ="\r")
+
+            elapsed = time.time() - loop_start_time
             if elapsed < DT:
                 time.sleep(DT - elapsed)
 
     except KeyboardInterrupt:
-        print("\n[SHUTDOWN] Τερματισμός τηλεχειρισμού...")
+        print("\n\n[SHUTDOWN] Τερματισμός τηλεχειρισμού.")
+        # Απενεργοποίηση αντλίας (20=LOW) και καθαρισμός GPIO
         GPIO.output(20, GPIO.LOW)
-        GPIO.output(21, GPIO.HIGH)
         GPIO.cleanup()
 
 if __name__ == "__main__":
