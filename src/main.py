@@ -32,8 +32,8 @@ WS_Z_MIN, WS_Z_MAX =  -0.08, 0.38 + EE_Offset
 # Όλα είναι μετρημένα στο εργαστήριο και το EE_Offset και το Base-Table
 
 Q_HOME = np.array([0.0, 0.5, 0.0, 1.0, 0.0, 0.5, 0.0])
-#Q_HOME = np.array([1.5, 0.5, 0.0, 0.0, 0.0, -1.5, 0.0])  #R
-#Q_HOME = np.array([-1.5, 0.5, -0.5, -0.5, 0.0, -1.5, 0.0])  #L
+#Q_HOME = np.array([1.5, 0.5, 0.0, 0.0, 0.0, -1.5, 0.0])
+#Q_HOME = np.array([-1.5, 0.5, -0.5, -0.5, 0.0, -1.5, 0.0])
 
 # 3. Main
 def main():
@@ -59,7 +59,7 @@ def main():
                 q_current = np.array(angles)
             print("RESETCOMPLETE: Το ρομπότ είναι έτοιμο και σταθερό!\n")
         except Exception as e:
-            print(f"RESETERROR: {e}")
+            print(f"RESET ERROR: {e}")
 
     print("--- ΤΗΛΕΧΕΙΡΙΣΜΟΣ ΕΝΕΡΓΟΣ (30 Hz) ---")
     print("Αφήστε τους μοχλούς: Το ρομπότ ΠΡΕΠΕΙ να μένει ΑΠΟΛΥΤΑ ΑΚΙΝΗΤΟ.\n")
@@ -83,7 +83,7 @@ def main():
                 else:
                     q_current = np.copy(Q_HOME)
                 
-                print("RESETCOMPLETE: Το ρομπότ επανήλθε στη μηδενική θέση.\n")
+                print("RESET COMPLETE: Το ρομπότ επανήλθε στη μηδενική θέση.\n")
                 continue
 
             # Υπολογισμός FK & Jacobian
@@ -130,7 +130,7 @@ def main():
                     if arm is not None:
                         arm.send_radians(q_current.tolist(), 30)
                 else:
-                    print("\nWORKSPACE LIMIT! Motion Blocked.  ", end="\r")
+                    print("\nWORKSPACE LIMIT! Motion Blocked!", end="\r")
 
             # εμφάνιση κατάστασης
             v_str = f"Vx:{v_cmd[0]:.2f} Vy:{v_cmd[1]:.2f} Vz:{v_cmd[2]:.2f} Wx:{v_cmd[3]:.2f} Wy:{v_cmd[4]:.2f} Wz:{v_cmd[5]:.2f}"

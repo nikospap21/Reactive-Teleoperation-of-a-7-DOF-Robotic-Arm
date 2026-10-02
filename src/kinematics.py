@@ -1,7 +1,7 @@
 import math
 import numpy as np
 
-
+"""Kinematics based on URDF of MyArm 300 Pi."""
 class KinematicsEngine7DOF:
 
     def __init__(
@@ -11,31 +11,29 @@ class KinematicsEngine7DOF:
         max_joint_vel=1.5,
         singularity_threshold=0.015,
     ):
-        """Ακριβής Κινηματική Μηχανή βασισμένη στο Επίσημο URDF του MyArm 300 Pi."""
         self.dof = 7
         self.lambda_max = lambda_max
         self.k_null = k_null
         self.max_joint_vel = max_joint_vel
         self.singularity_threshold = singularity_threshold
 
-        # Ακριβή Transformations από το URDF (Origin XYZ, RPY για κάθε joint)
-        # [x, y, z, roll, pitch, yaw]
+        # Transformations από το URDF (x, y, z, roll, pitch, yaw)
         EE_Offset = 0.15
         self.joint_origins = [
-            [0.0, 0.0, 0.165, 0.0, 0.0, 0.0],           # Joint 1 -> Base
-            [0.0, 0.0, 0.0, -1.5708, 0.0, 0.0],         # Joint 2 -> Joint 1
-            [0.0, -0.110, 0.0, 1.5708, 0.0, 0.0],       # Joint 3 -> Joint 2
-            [0.0, 0.0, 0.0, -1.5708, 0.0, 3.14159],     # Joint 4 -> Joint 3
-            [0.0, -0.126, 0.0, 1.5708, 0.0, 0.0],       # Joint 5 -> Joint 4
-            [0.0, 0.0, 0.0, -1.5708, 0.0, 0.0],         # Joint 6 -> Joint 5
-            [0.0, -0.056, EE_Offset, 1.5708, 0.0, 0.0], # Joint 7 -> Joint 6
+            [0.0, 0.0, 0.165, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, -1.5708, 0.0, 0.0],
+            [0.0, -0.110, 0.0, 1.5708, 0.0, 0.0],
+            [0.0, 0.0, 0.0, -1.5708, 0.0, 3.14159],
+            [0.0, -0.126, 0.0, 1.5708, 0.0, 0.0],   
+            [0.0, 0.0, 0.0, -1.5708, 0.0, 0.0],    
+            [0.0, -0.056, EE_Offset, 1.5708, 0.0, 0.0],
         ]
 
-        # Rest pose εντός των πραγματικών ορίων του URDF
+        # Rest pose 
         self.q_rest = np.array([0.0, 0.5, 0.0, 1.0, 0.0, 0.5, 0.0])
 
+    # Μετατροπές Roll-Pitch-Yaw σε 3x3 Rotation Matrix
     def rpy_to_mat(self, r, p, y):
-        """Μετατροπές Roll-Pitch-Yaw σε 3x3 Rotation Matrix."""
         cr, sr = math.cos(r), math.sin(r)
         cp, sp = math.cos(p), math.sin(p)
         cy, sy = math.cos(y), math.sin(y)
@@ -46,8 +44,8 @@ class KinematicsEngine7DOF:
 
         return R_z @ R_y @ R_x
 
+    # Υπολογισμός του 4x4 πίνακα μετασχηματισμού για κάθε joint
     def get_joint_transform(self, joint_idx, q_val):
-        """Υπολογίζει τον 4x4 πίνακα μετασχηματισμού για κάθε joint βάσει URDF."""
         x, y, z, r, p, yaw = self.joint_origins[joint_idx]
         
         # Origin transformation
@@ -66,8 +64,8 @@ class KinematicsEngine7DOF:
 
         return T_origin @ T_rot
 
+    # Υπολογισμός FK και Jacobian
     def compute_fk_and_jacobian(self, q):
-        """Υπολογισμός FK και 6x7 Geometric Jacobian απευθείας από τη URDF δομή."""
         T = np.eye(4)
         positions = [np.zeros(3)]
         z_axes = [np.array([0.0, 0.0, 1.0])]
@@ -85,13 +83,13 @@ class KinematicsEngine7DOF:
         for i in range(self.dof):
             z_i = z_axes[i]
             p_i = positions[i]
-            J[0:3, i] = np.cross(z_i, p_end - p_i)  # Linear Velocity (v)
-            J[3:6, i] = z_i                        # Angular Velocity (w)
+            J[0:3, i] = np.cross(z_i, p_end - p_i)
+            J[3:6, i] = z_i
 
         return p_end, R_end, J
 
+    # DLS IK με Null-space projection
     def solve_dls_ik(self, J, v_cmd, q_current):
-        """DLS IK Solver με Null-space projection."""
         JJt = J @ J.T
         det_JJt = np.linalg.det(JJt)
         w = math.sqrt(max(0.0, det_JJt))
