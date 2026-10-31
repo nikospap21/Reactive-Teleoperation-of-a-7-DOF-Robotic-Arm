@@ -270,3 +270,18 @@ python3 main.py
 * **Marios Christos Choustoulakis** (AM: 1101141) – Department of ECE, University of Patras
 
 *Course: Robotic Systems I (2025–2026) | Department of Electrical and Computer Engineering, University of Patras*
+
+---
+
+## ⚠️ Current Status & Known Challenges
+The current implementation serves as an experimental prototype exploring reactive control and kinematic mapping for 7-DOF teleoperation. 
+
+**Current Limitations:**
+- Tracking lag and high-frequency vibrations under rapid input changes.
+- Sensitivity near kinematic singularities requiring stricter joint damping.
+- Sub-optimal collision avoidance boundaries in dynamic workspaces.
+
+**Future Roadmap:**
+- Integration of Damped Least Squares (DLS) / Task-Priority IK.
+- Implementation of velocity filtering to smooth teleoperation commands.
+- Simulation-based validation in MuJoCo prior to hardware testing.
