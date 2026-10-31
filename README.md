@@ -265,9 +265,9 @@ python3 main.py
 
 ## 👥 Contributors
 
-* **Nikolaos Papoutsopoulos** (AM: 1101000) – Department of ECE, University of Patras
+* **Nikolaos Papoutsopoulos** (UP: 1101000) – Department of ECE, University of Patras
 
-* **Marios Christos Choustoulakis** (AM: 1101141) – Department of ECE, University of Patras
+* **Marios Christos Choustoulakis** (UP: 1101141) – Department of ECE, University of Patras
 
 *Course: Robotic Systems I (2025–2026) | Department of Electrical and Computer Engineering, University of Patras*
 
